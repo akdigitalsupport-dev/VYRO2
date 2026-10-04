@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase/server";
+import { workspacePath } from "@/lib/auth/policy";
 
 const signInSchema = z.object({
   email: z.email().max(254),
@@ -26,11 +27,11 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "We couldn't verify your session. Please try again." };
   const { data: profile } = await supabase.from("user_profiles").select("role").eq("user_id", user.id).maybeSingle();
-  if (profile?.role === "platform_owner") redirect("/platform/dashboard");
-  if (profile?.role === "gym_admin") {
-    const { data: memberships } = await supabase.from("gym_user_memberships").select("gym_id").eq("user_id", user.id).eq("role", "gym_admin");
-    if (memberships?.length === 1) redirect("/gym/dashboard");
-  }
+  const { data: memberships } = profile?.role === "gym_admin"
+    ? await supabase.from("gym_user_memberships").select("gym_id").eq("user_id", user.id).eq("role", "gym_admin")
+    : { data: [] };
+  const destination = workspacePath(profile?.role, memberships?.length ?? 0);
+  if (destination) redirect(destination);
   await supabase.auth.signOut();
   return { error: "This account does not have an active VYRO workspace." };
 }

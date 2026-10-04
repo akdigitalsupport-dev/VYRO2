@@ -1,3 +1,5 @@
+import { Card } from "@/components/ui";
+
 export type Metric = { label: string; value: string; detail: string; tone?: "accent" | "good" | "warning" };
 
 export function DashboardHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
@@ -14,7 +16,7 @@ export function MetricGrid({ metrics }: { metrics: Metric[] }) {
 }
 
 export function DataPanel({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
-  return <section className="data-panel"><div className="panel-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div></div>{children}</section>;
+  return <Card title={title} description={description}>{children}</Card>;
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
