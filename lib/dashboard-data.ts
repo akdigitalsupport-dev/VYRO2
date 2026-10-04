@@ -1,3 +1,4 @@
+import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addIsoDays, isValidTimeZone, localDateInTimeZone } from "@/lib/dates";
 
@@ -17,7 +18,7 @@ export type DashboardSummary = {
 
 export async function getPlatformDashboardData() {
   const supabase = await createSupabaseServerClient();
-  const { data: platformSettings } = await supabase.from("platform_settings").select("default_timezone, default_currency").eq("id", 1).maybeSingle();
+  const { data: platformSettings, error: settingsError } = await supabase.from("platform_settings").select("default_timezone, default_currency").eq("id", 1).maybeSingle();
   const timeZone = platformSettings?.default_timezone && isValidTimeZone(platformSettings.default_timezone) ? platformSettings.default_timezone : "Asia/Kolkata";
   const today = localDateInTimeZone(timeZone);
   const [summaryResult, renewalResult, activityResult] = await Promise.all([
@@ -35,6 +36,7 @@ export async function getPlatformDashboardData() {
     summary: summaryResult.data?.[0] as DashboardSummary | undefined,
     currency: platformSettings?.default_currency || "INR",
     timeZone,
+    settingsError,
     summaryError: summaryResult.error,
     renewals: renewalResult.data || [],
     renewalsError: renewalResult.error,
@@ -45,14 +47,17 @@ export async function getPlatformDashboardData() {
 
 export async function getGymDashboardData(gymId: string) {
   const supabase = await createSupabaseServerClient();
-  const [summaryResult, gymResult, settingsResult, renewalResult, activityResult] = await Promise.all([
+  const { data: settings, error: settingsError } = await supabase.from("gym_settings").select("timezone, currency").eq("gym_id", gymId).maybeSingle();
+  const timeZone = settings?.timezone && isValidTimeZone(settings.timezone) ? settings.timezone : "Asia/Kolkata";
+  const today = localDateInTimeZone(timeZone);
+  const [summaryResult, gymResult, renewalResult, activityResult] = await Promise.all([
     supabase.rpc("get_gym_dashboard_summary", { target_gym_id: gymId }),
     supabase.from("gyms").select("name").eq("id", gymId).maybeSingle(),
-    supabase.from("gym_settings").select("timezone, currency").eq("gym_id", gymId).maybeSingle(),
     supabase.from("members")
-      .select("id, full_name, membership_expires_on, status")
+      .select("id, full_name, membership_expires_on, status", { count: "exact" })
       .eq("gym_id", gymId).is("archived_at", null)
-      .in("status", ["expiring", "expired"])
+      .eq("status", "active")
+      .gte("membership_expires_on", today).lte("membership_expires_on", addIsoDays(today, 30))
       .order("membership_expires_on", { ascending: true }).limit(5),
     supabase.from("audit_logs")
       .select("id, action, entity_type, created_at")
@@ -60,13 +65,15 @@ export async function getGymDashboardData(gymId: string) {
   ]);
   return {
     summary: summaryResult.data?.[0] as DashboardSummary | undefined,
-    currency: settingsResult.data?.currency || "INR",
-    timeZone: settingsResult.data?.timezone || "Asia/Kolkata",
+    currency: settings?.currency || "INR",
+    timeZone,
+    settingsError,
     summaryError: summaryResult.error,
     gym: gymResult.data,
     gymError: gymResult.error,
     renewals: renewalResult.data || [],
     renewalsError: renewalResult.error,
+    upcomingRenewals: renewalResult.count,
     activities: activityResult.data || [],
     activityError: activityResult.error,
   };
@@ -74,7 +81,12 @@ export async function getGymDashboardData(gymId: string) {
 
 export function formatCurrency(amount: number | string | undefined, currency = "INR") {
   const value = Number(amount || 0);
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+  const normalizedCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "INR";
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: normalizedCurrency, maximumFractionDigits: 0 }).format(value);
+  } catch {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+  }
 }
 
 export function formatDate(date: string | null | undefined) {

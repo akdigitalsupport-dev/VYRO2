@@ -45,11 +45,12 @@ The application uses a cookie-backed Supabase SSR client. Normal data access use
 ```powershell
 npm run lint
 npm run typecheck
+npm test
 npm run build
 npx supabase test db
 ```
 
-Database policy tests are in `supabase/tests/tenant_isolation.test.sql` and require the Supabase CLI/local Postgres test environment with pgTAP. The production build needs the public Supabase URL and publishable key to be set at build time.
+Role-routing policy tests run with Node's built-in test runner. Database policy tests are in `supabase/tests/tenant_isolation.test.sql` and require the Supabase CLI/local Postgres test environment with pgTAP. The production build needs the public Supabase URL and publishable key to be set at build time.
 
 ## Production deployment
 

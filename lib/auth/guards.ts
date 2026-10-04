@@ -1,7 +1,10 @@
+import "server-only";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase/server";
+import { canAccessRole, workspacePath } from "@/lib/auth/policy";
+import type { AppRole } from "@/lib/auth/policy";
 
-export type AppRole = "platform_owner" | "gym_admin";
+export type { AppRole } from "@/lib/auth/policy";
 export type Identity = { userId: string; displayName: string | null; role: AppRole; gymId?: string };
 
 export async function requireRole(role: AppRole): Promise<Identity> {
@@ -17,12 +20,14 @@ export async function requireRole(role: AppRole): Promise<Identity> {
     .maybeSingle();
   if (error || !profile) redirect("/login?reason=access");
 
-  if (role === "platform_owner") {
-    if (profile.role !== "platform_owner") redirect("/gym/dashboard");
-    return { userId: user.id, displayName: profile.display_name, role: "platform_owner" };
+  if (!canAccessRole(profile.role, role)) {
+    const { data: memberships } = profile.role === "gym_admin"
+      ? await supabase.from("gym_user_memberships").select("gym_id").eq("user_id", user.id).eq("role", "gym_admin")
+      : { data: [] };
+    redirect(workspacePath(profile.role, memberships?.length ?? 0) || "/login?reason=access");
   }
+  if (role === "platform_owner") return { userId: user.id, displayName: profile.display_name, role };
 
-  if (profile.role !== "gym_admin") redirect("/platform/dashboard");
   const { data: memberships, error: membershipError } = await supabase
     .from("gym_user_memberships")
     .select("gym_id, role")
