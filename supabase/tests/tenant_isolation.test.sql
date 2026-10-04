@@ -38,8 +38,11 @@ select is((select count(*) from public.members where id = 'cccccccc-0000-4000-80
   'Gym A can read its own member rows');
 select lives_ok($$update public.members set full_name = 'Changed by Gym A' where id = 'cccccccc-0000-4000-8000-000000000002'$$,
   'A cross-tenant update affects no accessible row');
+reset role;
 select is((select full_name from public.members where id = 'cccccccc-0000-4000-8000-000000000002'), 'Gym B Member',
   'Gym A cannot modify Gym B member data');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000001', true);
 select throws_ok($$delete from public.members where id = 'cccccccc-0000-4000-8000-000000000002'$$, '42501', null,
   'Gym A cannot delete Gym B member data');
 select throws_ok($$select public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000002')$$, '42501', null,
