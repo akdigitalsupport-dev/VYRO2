@@ -103,11 +103,12 @@ const subscriptionSchema = z.object({
   gym_id: z.uuid(),
   subscription_id: z.union([z.uuid(), z.literal("")]),
   plan_name: z.string().trim().min(1).max(120),
-  amount: z.coerce.number().finite().nonnegative().max(100000000),
+  amount: z.string().trim().regex(/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/),
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+  billing_period: z.enum(["monthly", "quarterly", "yearly", "custom"]),
   starts_on: z.iso.date(),
   expires_on: z.iso.date(),
-  status: z.enum(["active", "expired", "suspended", "cancelled"]),
+  status: z.enum(["trial", "active", "past_due", "expired", "suspended", "cancelled"]),
 });
 
 export async function saveGymSubscription(formData: FormData) {
@@ -130,7 +131,8 @@ export async function saveGymSubscription(formData: FormData) {
 const platformPaymentSchema = z.object({
   gym_id: z.uuid(),
   subscription_id: z.uuid(),
-  amount: z.coerce.number().finite().positive().max(100000000),
+  amount: z.string().trim().regex(/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/)
+    .refine((value) => !/^0(?:\.0{1,2})?$/.test(value)),
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
   reference: z.string().trim().max(120),
 });
@@ -152,6 +154,22 @@ export async function recordPlatformPayment(formData: FormData) {
   revalidatePath("/platform/dashboard");
   revalidatePath("/platform/revenue");
   redirect(`/platform/gyms/${parsed.data.gym_id}?saved=payment`);
+}
+
+export async function updatePlatformPaymentStatus(formData: FormData) {
+  await requireRole("platform_owner");
+  const parsed = z.object({
+    payment_id: z.uuid(),
+    status: z.enum(["completed", "failed", "refunded", "cancelled"]),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/platform/revenue?error=validation");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("platform_subscription_payments")
+    .update({ status: parsed.data.status }).eq("id", parsed.data.payment_id).select("id").maybeSingle();
+  if (error || !data) redirect("/platform/revenue?error=transition");
+  revalidatePath("/platform/dashboard");
+  revalidatePath("/platform/revenue");
+  redirect("/platform/revenue?saved=updated");
 }
 
 const gymAdminInviteSchema = z.object({

@@ -1,14 +1,17 @@
 import { DashboardHeader, DataPanel } from "@/components/dashboard";
 import { savePlatformSettings } from "@/lib/platform/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/guards";
+import { NotificationPreferences } from "@/components/notification-preferences";
 
 export default async function PlatformSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
-  const [{ data, error }, params] = await Promise.all([
-    (async () => { const supabase = await createSupabaseServerClient(); return supabase.from("platform_settings").select("brand_name, support_email, default_currency, default_timezone").eq("id", 1).maybeSingle(); })(),
-    searchParams,
+  const [identity, params, supabase] = await Promise.all([requireRole("platform_owner"), searchParams, createSupabaseServerClient()]);
+  const [{ data, error }, { data: preferences, error: preferencesError }] = await Promise.all([
+    supabase.from("platform_settings").select("brand_name, support_email, default_currency, default_timezone").eq("id", 1).maybeSingle(),
+    supabase.from("notification_preferences").select("event_type, channel, enabled").eq("user_id", identity.userId).eq("audience", "platform").is("gym_id", null),
   ]);
   return <><DashboardHeader eyebrow="Platform configuration" title="Settings" description="Brand and default contact information for VYRO." />
-    {params.saved && <p className="success-message" role="status">Platform settings saved.</p>}
+    {params.saved === "1" && <p className="success-message" role="status">Platform settings saved.</p>}
     {params.error && <p className="form-error" role="alert">{params.error === "validation" ? "Review the settings and try again." : "Settings could not be saved."}</p>}
     <DataPanel title="Platform defaults" description="These defaults can be overridden for individual gyms where appropriate.">
       {error ? <div className="empty-state"><strong>Settings are unavailable</strong><p>Apply the database migration to initialize platform settings.</p></div> : data && <form action={savePlatformSettings} className="record-form settings-form">
@@ -19,5 +22,6 @@ export default async function PlatformSettingsPage({ searchParams }: { searchPar
         <button className="button button-primary" type="submit">Save settings</button>
       </form>}
     </DataPanel>
+    <div className="report-section"><NotificationPreferences audience="platform" preferences={preferences || []} saved={params.saved === "notifications" ? "saved" : undefined} error={preferencesError ? "preferences" : params.error} /></div>
   </>;
 }

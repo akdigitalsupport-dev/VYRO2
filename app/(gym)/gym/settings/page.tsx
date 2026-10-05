@@ -2,16 +2,18 @@ import { DashboardHeader, DataPanel } from "@/components/dashboard";
 import { updateGymSettings } from "@/lib/gym/actions";
 import { requireRole } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { NotificationPreferences } from "@/components/notification-preferences";
 
 export default async function GymSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const [identity, params] = await Promise.all([requireRole("gym_admin"), searchParams]);
   const supabase = await createSupabaseServerClient();
-  const [{ data: gym }, { data: settings, error }] = await Promise.all([
+  const [{ data: gym }, { data: settings, error }, { data: preferences, error: preferencesError }] = await Promise.all([
     supabase.from("gyms").select("name, phone, email, address").eq("id", identity.gymId!).maybeSingle(),
     supabase.from("gym_settings").select("timezone, currency").eq("gym_id", identity.gymId!).maybeSingle(),
+    supabase.from("notification_preferences").select("event_type, channel, enabled").eq("user_id", identity.userId).eq("audience", "gym").eq("gym_id", identity.gymId!),
   ]);
   return <><DashboardHeader eyebrow="Gym workspace" title="Gym settings" description="Manage regional defaults for this gym." />
-    {params.saved && <p className="success-message" role="status">Gym settings saved.</p>}
+    {params.saved === "1" && <p className="success-message" role="status">Gym settings saved.</p>}
     {params.error && <p className="form-error" role="alert">{params.error === "validation" ? "Check the timezone and currency values." : "Settings could not be saved."}</p>}
     <div className="dashboard-columns">
       <DataPanel title="Regional settings" description="These settings apply only to your gym workspace.">
@@ -21,5 +23,6 @@ export default async function GymSettingsPage({ searchParams }: { searchParams: 
         <dl className="details-grid"><div><dt>Gym</dt><dd>{gym?.name || "—"}</dd></div><div><dt>Phone</dt><dd>{gym?.phone || "Not provided"}</dd></div><div><dt>Email</dt><dd>{gym?.email || "Not provided"}</dd></div><div><dt>Address</dt><dd>{gym?.address || "Not provided"}</dd></div></dl>
       </DataPanel>
     </div>
+    <div className="report-section"><NotificationPreferences audience="gym" preferences={preferences || []} saved={params.saved === "notifications" ? "saved" : undefined} error={preferencesError ? "preferences" : params.error} /></div>
   </>;
 }

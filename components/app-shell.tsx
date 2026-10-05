@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/actions";
 import type { AppRole } from "@/lib/auth/guards";
+import { NotificationCenter } from "@/components/notification-center";
+import type { InAppNotification } from "@/lib/notifications/server";
 
 type NavigationItem = { label: string; href: string; icon: string };
 
@@ -44,7 +46,7 @@ function Navigation({ items, pathname, mobile = false }: { items: NavigationItem
   );
 }
 
-export function AppShell({ role, displayName, children }: { role: AppRole; displayName: string | null; children: React.ReactNode }) {
+export function AppShell({ role, displayName, children, notifications = [], unreadCount = 0, timeZone = "Asia/Kolkata" }: { role: AppRole; displayName: string | null; children: React.ReactNode; notifications?: InAppNotification[]; unreadCount?: number; timeZone?: string }) {
   const pathname = usePathname();
   const isPlatform = role === "platform_owner";
   const nav = isPlatform ? platformNav : gymNav;
@@ -76,6 +78,7 @@ export function AppShell({ role, displayName, children }: { role: AppRole; displ
             <span className="brand-mark">V</span><span>VYRO</span>
           </Link>
           <div className="topbar-title"><span>{sectionName}</span><strong>{title}</strong></div>
+          <NotificationCenter audience={isPlatform ? "platform" : "gym"} notifications={notifications} unreadCount={unreadCount} timeZone={timeZone} />
           <div className="topbar-account">
             <div className="account-avatar" aria-hidden="true">{accountName.slice(0, 1).toUpperCase()}</div>
             <div className="account-copy"><strong>{accountName}</strong><span>{isPlatform ? "Platform owner" : "Gym admin"}</span></div>
