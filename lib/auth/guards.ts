@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase/server";
 import { canAccessRole, workspacePath } from "@/lib/auth/policy";
@@ -7,7 +8,7 @@ import type { AppRole } from "@/lib/auth/policy";
 export type { AppRole } from "@/lib/auth/policy";
 export type Identity = { userId: string; displayName: string | null; role: AppRole; gymId?: string };
 
-export async function requireRole(role: AppRole): Promise<Identity> {
+export const requireRole = cache(async (role: AppRole): Promise<Identity> => {
   if (!hasSupabaseConfig()) redirect("/login?reason=configuration");
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,4 +36,4 @@ export async function requireRole(role: AppRole): Promise<Identity> {
     .eq("role", "gym_admin");
   if (membershipError || memberships?.length !== 1) redirect("/login?reason=access");
   return { userId: user.id, displayName: profile.display_name, role: "gym_admin", gymId: memberships[0].gym_id };
-}
+});
