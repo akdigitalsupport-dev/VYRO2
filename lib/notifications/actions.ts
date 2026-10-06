@@ -52,3 +52,13 @@ export async function saveNotificationPreferences(formData: FormData) {
   revalidatePath(path);
   redirect(`${path}?saved=notifications`);
 }
+
+export async function loadNotifications(audience: "gym" | "platform") {
+  const identity =
+    audience === "platform"
+      ? await requireRole("platform_owner")
+      : await requireRole("gym_admin");
+
+  const { loadNotificationCenter } = await import("./server");
+  return loadNotificationCenter(identity);
+}
