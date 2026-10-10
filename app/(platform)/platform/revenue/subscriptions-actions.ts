@@ -66,12 +66,14 @@ export async function updateSubscriptionStatusAction(_previousState:FormActionSt
  const {data:subscription,error:readError}=await supabase.from("platform_subscriptions").select("id,status,amount,starts_on,expires_on,billing_period").eq("id",subscription_id).maybeSingle();
  if(readError||!subscription)return {status:"error",message:"Subscription could not be found."};
  if(subscription.status===next_status)return {status:"success",message:"Subscription is already in that status.",recordId:subscription.id};
+ const today=todayInIndia();
+ if(next_status==="active"&&subscription.status==="expired")return {status:"error",message:"Expired subscriptions must be renewed as a new term. Use Renew subscription so previous payment history remains attached to the old term."};
+ if(next_status==="active"&&subscription.expires_on<today&&["past_due","suspended"].includes(subscription.status))return {status:"error",message:"This subscription term has ended. Use Renew subscription to create a new paid term before recording its payment."};
  let renewedDates:{starts_on:string;expires_on:string}|null=null;
  if(next_status==="active"){
   if(Number(subscription.amount)<=0)return {status:"error",message:"Set a paid plan or custom price before activating this subscription."};
   const {count,error:paymentError}=await supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("subscription_id",subscription_id).eq("status","completed");
   if(paymentError||!count)return {status:"error",message:"To activate a paid subscription, first record and verify at least one payment in SaaS Payments."};
-  const today=todayInIndia();
   const startsPaidTerm=subscription.status==="trial"||subscription.expires_on<today;
   if(startsPaidTerm){
     let newExpiry:string;
