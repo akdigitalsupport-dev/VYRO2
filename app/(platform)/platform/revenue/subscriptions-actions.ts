@@ -29,7 +29,15 @@ export async function updateSubscriptionPricingAction(_previousState:FormActionS
  const {data:subscription,error:subscriptionError}=await supabase.from("platform_subscriptions").select("id,status,starts_on,expires_on,amount,currency").eq("id",p.subscription_id).maybeSingle();
  if(subscriptionError||!subscription)return {status:"error",message:"Subscription could not be found. Refresh and try again."};
  if(subscription.status==="cancelled")return {status:"error",message:"Cancelled subscriptions cannot be repriced. Create a new subscription for a future agreement."};
+ const expiryDate = new Date(`${p.expires_on}T00:00:00Z`);
+ if(Number.isNaN(expiryDate.getTime()) || expiryDate.toISOString().slice(0,10)!==p.expires_on) return {status:"error",message:"Expiry date is invalid.",fieldErrors:{expires_on:"Choose a real calendar date."}};
  if(p.expires_on<subscription.starts_on)return {status:"error",message:"Expiry date cannot be earlier than the subscription start date.",fieldErrors:{expires_on:"Choose a date on or after the start date."}};
+ if(subscription.status==="trial"){
+  const latestAllowed = new Date(`${subscription.starts_on}T00:00:00Z`);
+  if(Number.isNaN(latestAllowed.getTime())) return {status:"error",message:"The subscription start date is invalid.",fieldErrors:{expires_on:"Refresh and review the current start date."}};
+  latestAllowed.setUTCDate(latestAllowed.getUTCDate()+89);
+  if(p.expires_on>latestAllowed.toISOString().slice(0,10)) return {status:"error",message:"Free trials cannot exceed 90 days from the start date.",fieldErrors:{expires_on:"Choose an expiry within 90 days of the trial start date."}};
+ }
 
  let planName:string,planId:string|null=null,amount:number;
  if(p.pricing_mode==="standard"){
