@@ -185,3 +185,57 @@ export async function createGymTrialAction(
     recordId: record.gym_id,
   };
 }
+
+const gymStatusSchema = z.object({
+  gym_id: z.string().uuid(),
+  next_status: z.enum(["active", "suspended"]),
+});
+
+export async function updateGymWorkspaceStatusAction(
+  _previousState: FormActionState,
+  formData: FormData,
+): Promise<FormActionState> {
+  await requirePlatformOwner();
+  if (process.env.VERCEL_ENV !== "production") {
+    return { status: "error", message: "Gym status changes are disabled in preview builds to protect production data." };
+  }
+  const parsed = gymStatusSchema.safeParse({
+    gym_id: formValue(formData, "gym_id"),
+    next_status: formValue(formData, "next_status"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: "Choose a valid gym and status." };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("set_platform_gym_status", {
+    p_gym_id: parsed.data.gym_id,
+    p_status: parsed.data.next_status,
+  });
+  const result = Array.isArray(data) ? data[0] : data;
+  if (error || !result?.gym_id) {
+    console.error("Platform gym status transition failed", { code: error?.code });
+    return {
+      status: "error",
+      message: error?.code === "PGRST202"
+        ? "The reviewed gym status migration is not installed in this database."
+        : "Gym status could not be changed. Refresh and check the current subscription state.",
+    };
+  }
+
+  revalidatePath("/platform");
+  revalidatePath("/platform/gyms");
+  revalidatePath("/platform/gyms/active");
+  revalidatePath("/platform/gyms/suspended");
+  revalidatePath("/platform/gyms/trials");
+  revalidatePath("/platform/trials");
+  revalidatePath("/platform/revenue");
+  revalidatePath("/platform/revenue/outstanding");
+  return {
+    status: "success",
+    message: parsed.data.next_status === "suspended"
+      ? "Gym workspace suspended. Its current trial or paid subscription was suspended as part of the same transaction, and tenant access is blocked."
+      : "Gym workspace marked active. If its subscription remains suspended, expired or cancelled, the owner will still need an authorized subscription change before workspace access resumes.",
+    recordId: result.gym_id,
+  };
+}
