@@ -49,7 +49,19 @@ function SubscriptionPricingCard({subscription,plans}:{subscription:Subscription
     {statusState.message?<p role={statusState.status==="error"?"alert":"status"} className={`rounded-md border p-2 text-xs ${statusState.status==="error"?"border-destructive/40 bg-destructive/5 text-destructive":"border-positive/40 bg-positive/5 text-positive"}`}>{statusState.message}</p>:null}
     <input type="hidden" name="subscription_id" value={subscription.id}/>
     <div className="grid gap-1.5"><Label htmlFor={`next-status-${subscription.id}`}>Change status</Label><select id={`next-status-${subscription.id}`} name="next_status" defaultValue={canTransition[0]??subscription.status} disabled={!canTransition.length} className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm">{[subscription.status,...canTransition].filter((v,i,a)=>a.indexOf(v)===i).map(status=><option key={status} value={status}>{humanize(status)}</option>)}</select></div>
-    <p className="text-xs leading-5 text-muted-foreground">Activating a paid subscription requires a configured paid price and at least one completed payment record. Selecting a status never creates a payment.</p>
+    {subscription.billing_period==="custom" ? (
+      <Field
+        id={`activation-expiry-${subscription.id}`}
+        name="activation_expires_on"
+        label="Paid term expiry date (custom period)"
+        type="date"
+        defaultValue={subscription.expires_on >= todayInIndia() ? subscription.expires_on : todayInIndia()}
+        min={todayInIndia()}
+        required
+        error={statusState.fieldErrors?.activation_expires_on}
+      />
+    ) : <input type="hidden" name="activation_expires_on" value="" />}
+    <p className="text-xs leading-5 text-muted-foreground">Activating a paid subscription requires a configured paid price and at least one completed payment record. Selecting a status never creates a payment. Custom billing periods require an explicit paid-term expiry date when activating or renewing.</p>
     <Button type="submit" variant="outline" disabled={statusPending||!canTransition.length}>{statusPending?"Saving…":canTransition.length?"Save status":"Subscription cancelled"}</Button>
     {subscription.status==="trial"||subscription.status==="past_due"?<a className="text-xs text-accent underline-offset-4 hover:underline" href="/platform/revenue/payments">Open SaaS Payments to record / verify a payment</a>:null}
    </form>
@@ -63,4 +75,5 @@ function Field({id,name,label,type="text",defaultValue,required=false,min,step,e
 }
 function humanize(value:string){return value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());}
 function formatCurrency(amount:number,currency:string){return new Intl.NumberFormat("en-IN",{style:"currency",currency:currency.trim(),maximumFractionDigits:2}).format(amount);}
+function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`;}
 function formatDate(value:string){const d=new Date(`${value}T00:00:00Z`);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-IN",{dateStyle:"medium",timeZone:"Asia/Kolkata"}).format(d);}
