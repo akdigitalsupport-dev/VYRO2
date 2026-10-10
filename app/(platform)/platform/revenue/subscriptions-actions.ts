@@ -105,3 +105,77 @@ function periodEndFrom(start:string,billingPeriod:string):string{
  end.setUTCDate(end.getUTCDate()-1);
  return end.toISOString().slice(0,10);
 }
+
+const renewalSchema=z.object({
+ subscription_id:z.string().uuid(),
+ renewal_expires_on:z.string().optional().default(""),
+});
+
+export async function renewPlatformSubscriptionAction(
+ _previousState:FormActionState,
+ fd:FormData,
+):Promise<FormActionState>{
+ await requirePlatformOwner();
+ if(process.env.VERCEL_ENV!=="production")return previewBlocked();
+ const parsed=renewalSchema.safeParse({
+  subscription_id:get(fd,"subscription_id"),
+  renewal_expires_on:get(fd,"renewal_expires_on"),
+ });
+ if(!parsed.success)return {status:"error",message:"Choose a valid subscription to renew."};
+
+ const supabase=await createServerSupabaseClient();
+ const {data:old,error:readError}=await supabase.from("platform_subscriptions")
+  .select("id,gym_id,plan_id,plan_name,amount,currency,billing_period,status,starts_on,expires_on")
+  .eq("id",parsed.data.subscription_id).maybeSingle();
+ if(readError||!old)return {status:"error",message:"Subscription could not be found. Refresh and try again."};
+ if(!["expired","cancelled","suspended","past_due","trial"].includes(old.status))
+  return {status:"error",message:"Only an ended, cancelled, suspended or expired subscription can start a new paid term."};
+
+ const today=todayInIndia();
+ if(old.status!=="expired"&&old.status!=="cancelled"&&old.expires_on>=today)
+  return {status:"error",message:"This subscription term has not ended. Update its current status or expiry instead of creating a duplicate term."};
+ const amount=Number(old.amount);
+ if(!Number.isFinite(amount)||amount<=0)
+  return {status:"error",message:"Set a positive subscription price before creating a paid renewal."};
+
+ const {data:otherSubscriptions,error:otherError}=await supabase.from("platform_subscriptions")
+  .select("id,status,expires_on")
+  .eq("gym_id",old.gym_id)
+  .in("status",["trial","active","past_due","suspended"])
+  .gte("expires_on",today)
+  .neq("id",old.id)
+  .limit(1);
+ if(otherError)return {status:"error",message:"Could not verify whether this gym already has a current subscription. Refresh and try again."};
+ if(otherSubscriptions?.length)
+  return {status:"error",message:"This gym already has another non-expired subscription. Review that record before starting a second term."};
+
+ let expiresOn:string;
+ if(old.billing_period==="custom"){
+  const chosen=parsed.data.renewal_expires_on;
+  const date=new Date(`${chosen}T00:00:00Z`);
+  if(!chosen||Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==chosen||chosen<today)
+   return {status:"error",message:"Choose a valid expiry date for this custom paid agreement.",fieldErrors:{renewal_expires_on:"Choose a real date today or later."}};
+  expiresOn=chosen;
+ }else{
+  expiresOn=periodEndFrom(today,old.billing_period);
+ }
+ if(expiresOn<today)return {status:"error",message:"The new paid term expiry must be today or later."};
+
+ const {data:created,error}=await supabase.from("platform_subscriptions").insert({
+  gym_id:old.gym_id,
+  plan_id:old.plan_id,
+  plan_name:old.plan_name,
+  amount,
+  currency:old.currency,
+  billing_period:old.billing_period,
+  starts_on:today,
+  expires_on:expiresOn,
+  status:"past_due",
+ }).select("id").maybeSingle();
+ if(error||!created){
+  console.error("Platform renewal creation failed",{code:error?.code});
+  return {status:"error",message:"The new subscription term could not be created. No payment was marked received."};
+ }
+ revalidatePath("/platform");revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/revenue/payments");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
+ return {status:"success",message:`New ${old.billing_period} term created through ${expiresOn} as past due. Record and verify its payment in SaaS Payments before activating it.`,recordId:created.id};
+}
