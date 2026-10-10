@@ -62,7 +62,7 @@ export default async function PlatformReportsPage() {
       </CommandCenterCard>
     </div>
     <CommandCenterCard title="Recently created gyms">
-      {(gyms.data??[]).length===0?<EmptyState icon={undefined as never} title="No gyms recorded" description="New customer workspaces will appear here when provisioned." action={{label:"Add Gym",href:"/platform/gyms/new"}}/>:
+      {(gyms.data??[]).length===0?<EmptyState icon={Building2} title="No gyms recorded" description="New customer workspaces will appear here when provisioned." action={{label:"Add Gym",href:"/platform/gyms/new"}}/>:
       <div className="divide-y divide-border">{(gyms.data??[]).map(gym=><div key={gym.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"><div><p className="font-medium">{gym.name}</p><p className="mt-1 text-xs text-muted-foreground">Created {formatDate(gym.created_at)}</p></div><span className="rounded-full border border-border px-2 py-1 text-xs">{gym.status}</span></div>)}</div>}
     </CommandCenterCard>
   </div>;
