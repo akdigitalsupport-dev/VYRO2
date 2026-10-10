@@ -24,6 +24,10 @@ function notificationUrl(row: NotificationRow) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.VERCEL_ENV !== "production") {
+    return Response.json({ error: "cron_disabled_outside_production" }, { status: 403 });
+  }
+
   const missing = [
     "CRON_SECRET",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -42,6 +46,13 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createAdminSupabaseClient();
+    const { data: platformExpiredCount, error: platformExpiryError } = await supabase.rpc("expire_platform_subscriptions");
+    if (platformExpiryError) {
+      console.error("Platform subscription expiry job failed", { code: platformExpiryError.code });
+      return Response.json({ error: "platform_subscription_expiry_failed" }, { status: 500 });
+    }
+    const platformSubscriptionsExpired = Number(platformExpiredCount ?? 0);
+
     const { data: materialized, error: materializeError } = await supabase.rpc("materialize_membership_expiry_notifications");
     if (materializeError) {
       console.error("Expiry notification materialization failed", { code: materializeError.code });
@@ -54,7 +65,7 @@ export async function GET(request: Request) {
       return Response.json({ error: "delivery_queue_unavailable" }, { status: 500 });
     }
     const queued = ((deliveries ?? []) as ClaimedDeliveryRow[]).map((row) => ({ ...row, id: row.delivery_id })) as DeliveryRow[];
-    if (!queued.length) return Response.json({ createdEvents: Number(materialized ?? 0), delivered: 0, failed: 0 });
+    if (!queued.length) return Response.json({ createdEvents: Number(materialized ?? 0), delivered: 0, failed: 0, platformSubscriptionsExpired });
 
     const notificationIds = [...new Set(queued.map((row) => row.notification_id))];
     const subscriptionIds = [...new Set(queued.map((row) => row.subscription_id))];
@@ -108,7 +119,7 @@ export async function GET(request: Request) {
       }));
     }
 
-    return Response.json({ createdEvents: Number(materialized ?? 0), delivered, failed, checked: queued.length });
+    return Response.json({ createdEvents: Number(materialized ?? 0), delivered, failed, checked: queued.length, platformSubscriptionsExpired });
   } catch (cause) {
     console.error("Membership expiry cron failed", { error: cause instanceof Error ? cause.name : "unknown" });
     return Response.json({ error: "membership_expiry_cron_failed" }, { status: 500 });
