@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -85,7 +86,7 @@ export async function GymDirectory({
         </p>
       ) : gyms.length === 0 ? (
         <EmptyState
-          icon={undefined}
+          icon={Inbox}
           title={searchQuery ? "No matching gyms" : filter === "trial" ? "No active trials" : "No gyms in this view"}
           description={searchQuery ? "Try a different search term." : "Create a gym workspace to see it listed here. New workspaces can start with a free trial."}
           action={filter === "all" || filter === "trial" ? { label: "Add Gym", href: "/platform/gyms/new" } : undefined}
@@ -94,7 +95,7 @@ export async function GymDirectory({
         <section className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_10px_28px_rgba(0,0,0,0.1)]">
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <p className="text-sm font-medium">{gyms.length} {gyms.length === 1 ? "gym" : "gyms"}</p>
-            <p className="text-xs text-muted-foreground">Live production records</p>
+            <p className="text-xs text-muted-foreground">Current platform records</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
