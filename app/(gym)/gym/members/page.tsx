@@ -159,15 +159,21 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const directory = data?.[0];
   const members = (Array.isArray(directory?.rows) ? directory.rows : []) as MemberDirectoryRow[];
   const memberIds = members.map((member) => member.id);
-  const { data: photoRows } = memberIds.length
-    ? await supabase.from("members").select("id, photo_path").eq("gym_id", gymId).in("id", memberIds)
-    : { data: [] };
+  // These reads are independent once the current page's member IDs are known.
+  // Run them concurrently so settings and payment data do not wait for the photo path.
+  const [{ data: photoRows }, { data: settings }, { data: paymentRows }] = await Promise.all([
+    memberIds.length
+      ? supabase.from("members").select("id, photo_path").eq("gym_id", gymId).in("id", memberIds)
+      : Promise.resolve({ data: [] }),
+    supabase.from("gym_settings").select("timezone").eq("gym_id", gymId).maybeSingle(),
+    memberIds.length
+      ? supabase.from("member_payments").select("member_id, status, payment_date").eq("gym_id", gymId).in("member_id", memberIds).order("payment_date", { ascending: false }).limit(500)
+      : Promise.resolve({ data: [] }),
+  ]);
   const photoPaths = (photoRows ?? []).map((member) => member.photo_path).filter((path): path is string => Boolean(path));
   const { data: signedPhotos } = photoPaths.length
     ? await supabase.storage.from("vyro-member-photos").createSignedUrls(photoPaths, 3600)
     : { data: [] };
-  const { data: settings } = await supabase.from("gym_settings").select("timezone").eq("gym_id", gymId).maybeSingle();
-  const { data: paymentRows } = memberIds.length ? await supabase.from("member_payments").select("member_id, status, payment_date").eq("gym_id", gymId).in("member_id", memberIds).order("payment_date", { ascending: false }).limit(500) : { data: [] };
   const today = dateInTimeZone(new Date(), settings?.timezone ?? "Asia/Kolkata");
   const signedUrlByPath = new Map((signedPhotos ?? []).map((photo) => [photo.path, photo.signedUrl]));
   const photoPathById = new Map((photoRows ?? []).map((member) => [member.id, member.photo_path]));

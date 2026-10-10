@@ -6,7 +6,7 @@ import { canAccessRole, workspacePath } from "@/lib/auth/policy";
 import type { AppRole } from "@/lib/auth/policy";
 
 export type { AppRole } from "@/lib/auth/policy";
-export type Identity = { userId: string; displayName: string | null; role: AppRole; gymId?: string };
+export type Identity = { userId: string; email: string | null; displayName: string | null; role: AppRole; gymId?: string };
 
 export const requireRole = cache(async (role: AppRole): Promise<Identity> => {
   if (!hasSupabaseConfig()) redirect("/login?reason=configuration");
@@ -27,7 +27,7 @@ export const requireRole = cache(async (role: AppRole): Promise<Identity> => {
       : { data: [] };
     redirect(workspacePath(profile.role, memberships?.length ?? 0) || "/unauthorized");
   }
-  if (role === "platform_owner") return { userId: user.id, displayName: profile.display_name, role };
+  if (role === "platform_owner") return { userId: user.id, email: user.email ?? null, displayName: profile.display_name, role };
 
   const { data: memberships, error: membershipError } = await supabase
     .from("gym_user_memberships")
@@ -36,29 +36,28 @@ export const requireRole = cache(async (role: AppRole): Promise<Identity> => {
     .eq("role", "gym_admin")
     .limit(2);
   if (membershipError || memberships?.length !== 1) redirect("/unauthorized");
-  return { userId: user.id, displayName: profile.display_name, role: "gym_admin", gymId: memberships[0].gym_id };
+  return { userId: user.id, email: user.email ?? null, displayName: profile.display_name, role: "gym_admin", gymId: memberships[0].gym_id };
 });
 
-export async function requireGymAdminContext() {
+export const requireGymAdminContext = cache(async () => {
   const identity = await requireRole("gym_admin");
   if (!identity.gymId) redirect("/unauthorized");
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) redirect("/login");
-  return { user, gymId: identity.gymId };
-}
 
-export async function requireGymAdmin() {
-  return (await requireGymAdminContext()).user;
-}
+  // requireRole already verified this session with Supabase Auth. Reuse its
+  // trusted, server-derived identity instead of calling /auth/v1/user again.
+  // Request-scoped caching also deduplicates nested layout/page guard calls.
+  return {
+    user: { id: identity.userId, email: identity.email },
+    gymId: identity.gymId,
+  };
+});
 
-export async function requirePlatformOwner() {
-  await requireRole("platform_owner");
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) redirect("/login");
-  return user;
-}
+export const requireGymAdmin = cache(async () => (await requireGymAdminContext()).user);
+
+export const requirePlatformOwner = cache(async () => {
+  const identity = await requireRole("platform_owner");
+  return { id: identity.userId, email: identity.email };
+});
 
 export async function requireAuthenticatedUser() {
   if (!hasSupabaseConfig()) redirect("/login?reason=configuration");
