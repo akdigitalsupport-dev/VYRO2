@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { ModulePage } from "@/components/shells/module-page";
+import { GymDirectory } from "@/components/platform/gym-directory";
 
-export const metadata: Metadata = { title: "Trials" };
+export const metadata: Metadata = { title: "Gym trials" };
 
-export default function Page() {
-  return (
-    <ModulePage
-      kicker="Gyms"
-      title="Trials"
-      description="Gyms currently on a VYRO trial. SaaS trial state is separate from gym member trials."
-    />
-  );
+export default async function GymTrialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = await searchParams;
+  return <GymDirectory filter="trial" searchQuery={q} title="Gym Trials" description="Customer gym workspaces currently on a VYRO free-trial subscription." />;
 }
