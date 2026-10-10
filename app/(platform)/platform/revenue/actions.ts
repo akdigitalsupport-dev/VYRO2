@@ -60,6 +60,9 @@ export async function createPendingPlatformPaymentAction(
   if (!["trial", "active", "past_due", "suspended"].includes(subscription.status)) {
     return { status: "error", message: "Only a subscription with a configured paid price can have a manual payment record. Free trials without a paid conversion have no payment due." };
   }
+  if (!Number.isFinite(Number(subscription.amount)) || Number(subscription.amount) <= 0) {
+    return { status: "error", message: "This subscription does not have a configured positive price. Configure pricing before recording a payment." };
+  }
 
   const { data: record, error } = await supabase
     .from("platform_subscription_payments")
