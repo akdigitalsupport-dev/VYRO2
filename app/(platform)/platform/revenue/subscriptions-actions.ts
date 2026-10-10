@@ -39,19 +39,19 @@ export async function updateSubscriptionPricingAction(_previousState:FormActionS
   if(p.expires_on>latestAllowed.toISOString().slice(0,10)) return {status:"error",message:"Free trials cannot exceed 90 days from the start date.",fieldErrors:{expires_on:"Choose an expiry within 90 days of the trial start date."}};
  }
 
- let planName:string,planId:string|null=null,amount:number;
+ let planName:string,planId:string|null=null,amount:number,resolvedBillingPeriod=p.billing_period;
  if(p.pricing_mode==="standard"){
   if(!p.plan_id)return {status:"error",message:"Select an active SaaS plan.",fieldErrors:{plan_id:"Select an active plan."}};
   const {data:plan,error}=await supabase.from("platform_plans").select("id,name,price,currency,billing_period,is_active").eq("id",p.plan_id).maybeSingle();
   if(error||!plan||!plan.is_active||plan.price===null||Number(plan.price)<=0)return {status:"error",message:"The selected SaaS plan is unavailable or has no active price.",fieldErrors:{plan_id:"Choose a configured active plan."}};
-  planName=plan.name;planId=plan.id;amount=Number(plan.price);
+  planName=plan.name;planId=plan.id;amount=Number(plan.price);resolvedBillingPeriod=plan.billing_period;
  }else{
   planName=p.custom_name.trim();
   amount=Number(p.custom_amount);
   if(!planName)return {status:"error",message:"Enter a label for the custom pricing agreement.",fieldErrors:{custom_name:"Enter a plan or agreement label."}};
   if(!Number.isFinite(amount)||amount<=0||amount>9999999999.99||Math.abs(amount*100-Math.round(amount*100))>0.000001)return {status:"error",message:"Custom price must be greater than zero and use at most two decimal places.",fieldErrors:{custom_amount:"Enter a valid price."}};
  }
- const {data:updated,error}=await supabase.from("platform_subscriptions").update({plan_id:planId,plan_name:planName,amount,currency:"INR",billing_period:p.billing_period,expires_on:p.expires_on}).eq("id",p.subscription_id).select("id").maybeSingle();
+ const {data:updated,error}=await supabase.from("platform_subscriptions").update({plan_id:planId,plan_name:planName,amount,currency:"INR",billing_period:resolvedBillingPeriod,expires_on:p.expires_on}).eq("id",p.subscription_id).select("id").maybeSingle();
  if(error||!updated)return {status:"error",message:"Pricing could not be saved. Check the platform subscription schema and try again."};
  revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
  return {status:"success",message:"Subscription pricing and expiry updated. No payment was recorded.",recordId:updated.id};
