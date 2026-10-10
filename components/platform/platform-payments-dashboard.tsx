@@ -6,6 +6,15 @@ import { CreatePendingPaymentForm } from "@/components/platform/create-pending-p
 import { CancelPendingPaymentForm, PaymentReconciliationForm } from "@/components/platform/payment-reconciliation-form";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+type PaymentAggregate = {
+  currency: string;
+  total_records: number | string;
+  pending_count: number | string;
+  completed_count: number | string;
+  completed_amount_all: number | string;
+  completed_amount_since: number | string;
+};
+
 export async function PlatformPaymentsDashboard() {
   const supabase = await createServerSupabaseClient();
   const [paymentsResult, subscriptionsResult, gymsResult, aggregatesResult] = await Promise.all([
@@ -33,7 +42,7 @@ export async function PlatformPaymentsDashboard() {
     subscription: subscriptionById.get(payment.subscription_id),
     gym: gymById.get(payment.gym_id),
   }));
-  const aggregates = aggregatesResult.data ?? [];
+  const aggregates = (aggregatesResult.data ?? []) as PaymentAggregate[];
   const totalRecordCount = aggregates.reduce((sum, row) => sum + Number(row.total_records), 0);
   const pendingCount = aggregates.reduce((sum, row) => sum + Number(row.pending_count), 0);
   const completedCount = aggregates.reduce((sum, row) => sum + Number(row.completed_count), 0);
