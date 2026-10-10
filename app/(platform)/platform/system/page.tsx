@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Activity, AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { CommandCenterCard } from "@/components/ui/command-center-card";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
