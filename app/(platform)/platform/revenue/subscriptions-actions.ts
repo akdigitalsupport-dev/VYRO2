@@ -63,7 +63,7 @@ export async function updateSubscriptionStatusAction(_previousState:FormActionSt
  if(!parsed.success)return {status:"error",message:"Choose a valid subscription status."};
  const {subscription_id,next_status}=parsed.data;
  const supabase=await createServerSupabaseClient();
- const {data:subscription,error:readError}=await supabase.from("platform_subscriptions").select("id,status,amount,starts_on,expires_on,billing_period").eq("id",subscription_id).maybeSingle();
+ const {data:subscription,error:readError}=await supabase.from("platform_subscriptions").select("id,status,amount,currency,starts_on,expires_on,billing_period").eq("id",subscription_id).maybeSingle();
  if(readError||!subscription)return {status:"error",message:"Subscription could not be found."};
  if(subscription.status===next_status)return {status:"success",message:"Subscription is already in that status.",recordId:subscription.id};
  const today=todayInIndia();
@@ -72,8 +72,13 @@ export async function updateSubscriptionStatusAction(_previousState:FormActionSt
  let renewedDates:{starts_on:string;expires_on:string}|null=null;
  if(next_status==="active"){
   if(Number(subscription.amount)<=0)return {status:"error",message:"Set a paid plan or custom price before activating this subscription."};
-  const {count,error:paymentError}=await supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("subscription_id",subscription_id).eq("status","completed");
-  if(paymentError||!count)return {status:"error",message:"To activate a paid subscription, first record and verify at least one payment in SaaS Payments."};
+  const {data:completedPayments,error:paymentError}=await supabase.from("platform_subscription_payments").select("amount,currency").eq("subscription_id",subscription_id).eq("status","completed");
+  if(paymentError)return {status:"error",message:"Completed payment records could not be verified. Refresh the ledger and try again."};
+  const verifiedAmount=(completedPayments??[]).filter(payment=>payment.currency.trim()===subscription.currency.trim()).reduce((sum,payment)=>sum+Number(payment.amount),0);
+  if(verifiedAmount+0.000001<Number(subscription.amount)){
+    const remaining=Math.max(0,Math.round((Number(subscription.amount)-verifiedAmount)*100)/100);
+    return {status:"error",message:"The completed, verified payments do not yet cover this subscription term.",fieldErrors:{next_status:"Verify payment(s) for the remaining "+new Intl.NumberFormat("en-IN",{style:"currency",currency:subscription.currency.trim(),maximumFractionDigits:2}).format(remaining)+" before activating."}};
+  }
   const startsPaidTerm=subscription.status==="trial"||subscription.expires_on<today;
   if(startsPaidTerm){
     let newExpiry:string;
