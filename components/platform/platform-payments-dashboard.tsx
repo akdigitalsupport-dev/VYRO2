@@ -38,7 +38,7 @@ export async function PlatformPaymentsDashboard() {
     .filter((payment) => payment.status === "completed" && payment.currency.trim() === "INR")
     .reduce((sum, payment) => sum + Number(payment.amount), 0);
   const paymentOptions = subscriptions
-    .filter((subscription) => ["active", "past_due", "suspended"].includes(subscription.status) && Number(subscription.amount) > 0)
+    .filter((subscription) => ["trial", "active", "past_due", "suspended"].includes(subscription.status) && Number(subscription.amount) > 0)
     .map((subscription) => ({
       id: subscription.id,
       plan_name: subscription.plan_name,
