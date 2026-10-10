@@ -1,4 +1,4 @@
-import { CreditCard, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CommandCenterCard } from "@/components/ui/command-center-card";
