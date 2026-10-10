@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function PlatformPaymentsDashboard() {
   const supabase = await createServerSupabaseClient();
-  const [paymentsResult, subscriptionsResult, gymsResult] = await Promise.all([
+  const [paymentsResult, subscriptionsResult, gymsResult, aggregatesResult] = await Promise.all([
     supabase
       .from("platform_subscription_payments")
       .select("id,subscription_id,gym_id,amount,currency,payment_date,reference,status,provider_name,provider_reference")
@@ -19,9 +19,10 @@ export async function PlatformPaymentsDashboard() {
       .select("id,gym_id,plan_name,amount,currency,status")
       .order("created_at", { ascending: false }),
     supabase.from("gyms").select("id,name,owner_name,email"),
+    supabase.rpc("get_platform_payment_aggregates", { p_since: null }),
   ]);
 
-  const loadError = paymentsResult.error || subscriptionsResult.error || gymsResult.error;
+  const loadError = paymentsResult.error || subscriptionsResult.error || gymsResult.error || aggregatesResult.error;
   const payments = paymentsResult.data ?? [];
   const subscriptions = subscriptionsResult.data ?? [];
   const gyms = gymsResult.data ?? [];
@@ -32,11 +33,13 @@ export async function PlatformPaymentsDashboard() {
     subscription: subscriptionById.get(payment.subscription_id),
     gym: gymById.get(payment.gym_id),
   }));
-  const pendingCount = payments.filter((payment) => payment.status === "pending").length;
-  const completedCount = payments.filter((payment) => payment.status === "completed").length;
-  const completedInr = payments
-    .filter((payment) => payment.status === "completed" && payment.currency.trim() === "INR")
-    .reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const aggregates = aggregatesResult.data ?? [];
+  const totalRecordCount = aggregates.reduce((sum, row) => sum + Number(row.total_records), 0);
+  const pendingCount = aggregates.reduce((sum, row) => sum + Number(row.pending_count), 0);
+  const completedCount = aggregates.reduce((sum, row) => sum + Number(row.completed_count), 0);
+  const completedInr = aggregates
+    .filter((row) => row.currency.trim() === "INR")
+    .reduce((sum, row) => sum + Number(row.completed_amount_all), 0);
   const paymentOptions = subscriptions
     .filter((subscription) => ["trial", "active", "past_due", "suspended"].includes(subscription.status) && Number(subscription.amount) > 0)
     .map((subscription) => ({
@@ -52,7 +55,7 @@ export async function PlatformPaymentsDashboard() {
     <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
       <PageHeader eyebrow="Revenue" title="SaaS Payments" description="VYRO subscription payment ledger. Records start pending; completed revenue counts only after receipt is verified. Razorpay is not connected." />
       <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Payment records" value={String(payments.length)} />
+        <Metric label="Payment records (all)" value={String(totalRecordCount)} hint={`Showing latest ${payments.length} records below`} />
         <Metric label="Pending reconciliation" value={String(pendingCount)} />
         <Metric label="Completed volume (INR)" value={formatInr(completedInr)} hint={`${completedCount} completed records across currencies`} />
       </div>
