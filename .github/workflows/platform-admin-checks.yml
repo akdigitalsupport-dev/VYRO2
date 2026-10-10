@@ -36,3 +36,12 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-only.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-only-fake-anon-key-not-secret-123456789012
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-only-fake-publishable-key-1234567890
+          SUPABASE_SERVICE_ROLE_KEY: ci-only-fake-service-role-key-1234567890
+          NEXT_PUBLIC_SITE_URL: https://vyro-2-two.vercel.app
+          VERCEL_ENV: preview
