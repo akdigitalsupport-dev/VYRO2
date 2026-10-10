@@ -1,5 +1,5 @@
 {
-  "name": "vyro",
+  "name": "vyro-saas",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,22 +8,49 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@radix-ui/react-avatar": "^1.2.6",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-label": "^2.1.15",
+    "@radix-ui/react-scroll-area": "^1.2.18",
+    "@radix-ui/react-select": "^2.3.7",
+    "@radix-ui/react-separator": "^1.1.15",
+    "@radix-ui/react-slot": "^1.3.3",
+    "@radix-ui/react-tabs": "^1.1.21",
+    "@radix-ui/react-tooltip": "^1.2.16",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "@types/web-push": "^3.6.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.49.0",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.7.0",
+    "web-push": "^3.6.7",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^24.19.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "jsdom": "^30.1.1",
+    "supabase": "^2.120.0",
+    "tailwindcss": "^4",
     "typescript": "^5",
-    "typescript-eslint": "^8.46.0"
+    "vitest": "^5.0.3"
   }
 }

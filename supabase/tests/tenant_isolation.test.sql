@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap;
-select plan(114);
+select plan(119);
 
 -- These fixtures are isolated to the transactional Supabase test database.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -104,16 +104,33 @@ select is((select count(*) from public.member_memberships where id = 'eeeeeeee-0
   'Gym A can read its own membership history');
 select is((select count(*) from public.member_memberships where id = 'eeeeeeee-0000-4000-8000-000000000002'), 0::bigint,
   'Gym A cannot read Gym B membership history');
-select lives_ok($$select public.create_gym_member(
+select lives_ok($$select * from public.create_gym_member_with_registration(
   'P3-AUTO-001', 'Phase Three Member', '+91 98765 43210', 'phase3@example.test', null, null,
-  null, '2026-07-01', null, 'dddddddd-0000-4000-8000-000000000001', '2026-07-01')$$,
+  null, '2026-07-01', null, 'dddddddd-0000-4000-8000-000000000001', '2026-07-01',
+  0, null, null, null, null, null, null, null, null, false)$$,
   'Gym A can create a member and first membership atomically');
 select is((select count(*) from public.member_memberships mm join public.members m on m.id = mm.member_id and m.gym_id = mm.gym_id
   where m.member_code = 'P3-AUTO-001' and mm.status = 'active'), 1::bigint,
   'A newly created member has a separate membership record');
-select lives_ok($$select public.assign_member_membership(
+select is((select count(*) from public.member_registration_payments rp join public.members m on m.id = rp.member_id and m.gym_id = rp.gym_id
+  where m.member_code = 'P3-AUTO-001'), 0::bigint,
+  'Unchecked registration fee creates no registration transaction');
+select lives_ok($$select * from public.create_gym_member_with_registration(
+  'P3-REG-001', 'Registration Member', '+91 98765 43211', 'registration@example.test', null, null,
+  null, current_date, null, 'dddddddd-0000-4000-8000-000000000001', current_date,
+  0, null, null, null, null, current_date, 'upi', 'P3-REG-RECEIPT', null, true)$$,
+  'Gym A can create a member with an opted-in registration fee');
+select is((select amount from public.member_registration_payments where reference = 'P3-REG-RECEIPT'),
+  (select registration_fee_amount from public.gym_settings where gym_id = 'bbbbbbbb-0000-4000-8000-000000000001'),
+  'Registration amount is snapshotted from server-side gym settings');
+select is((select status from public.member_registration_payments where reference = 'P3-REG-RECEIPT'),
+  'completed', 'Opted-in registration is recorded as completed');
+select is((select count(*) from public.member_payments p join public.members m on m.id = p.member_id and m.gym_id = p.gym_id
+  where m.member_code = 'P3-REG-001'), 0::bigint,
+  'Registration transaction is separate from membership payments');
+select lives_ok($$select * from public.assign_membership_with_payment(
   (select id from public.members where member_code = 'P3-AUTO-001'),
-  'dddddddd-0000-4000-8000-000000000001', '2026-08-01')$$,
+  'dddddddd-0000-4000-8000-000000000001', '2026-08-01', 0, null, null, null, null)$$,
   'Gym A can renew its member without replacing history');
 select is((select count(*) from public.member_memberships mm join public.members m on m.id = mm.member_id and m.gym_id = mm.gym_id
   where m.member_code = 'P3-AUTO-001'), 2::bigint,
@@ -124,7 +141,10 @@ select is((select count(*) from public.member_memberships mm join public.members
 select is((select count(*) from public.member_memberships mm join public.members m on m.id = mm.member_id and m.gym_id = mm.gym_id
   where m.member_code = 'P3-AUTO-001' and mm.start_date = '2026-08-01' and mm.status = 'active'), 1::bigint,
   'Renewal creates a distinct active membership row');
-select is((select total_count from public.get_gym_member_directory(null, null, null, 25, 0)), 2::bigint,
+select is((select count(*) from public.member_registration_payments rp join public.members m on m.id = rp.member_id and m.gym_id = rp.gym_id
+  where m.member_code = 'P3-AUTO-001'), 0::bigint,
+  'Membership renewal does not add a registration transaction');
+select is((select total_count from public.get_gym_member_directory(null, null, null, 25, 0)), 3::bigint,
   'Gym A directory is paginated from its own member records');
 select ok((select rows::text not like '%Gym B Member%' and rows::text like '%Gym A Member%'
   from public.get_gym_member_directory(null, null, null, 25, 0)),
@@ -245,75 +265,81 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000001', true);
 create temporary table phase5_gym_a_revenue_baseline as
   select month_revenue from public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000001');
-select lives_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000003', 100.55, 'upi', 'P5-A-1', null)$$,
-  'Gym A can record a member payment for its own member');
+select lives_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000003', 40.25, current_date, 'upi', 'P5-A-1', null)$$,
+  'Gym A can record a partial payment for its own membership');
 select is((select membership_id from public.member_payments where reference = 'P5-A-1'),
-  'eeeeeeee-0000-4000-8000-000000000003'::uuid, 'Payment is linked to the active membership for that member and gym');
+  'eeeeeeee-0000-4000-8000-000000000003'::uuid, 'Payment is linked to the selected membership');
 select is((select count(*) from public.member_payments where reference = 'P5-A-1'),
   1::bigint, 'Gym A can read its own member payment');
 select is((select status from public.member_payments where reference = 'P5-A-1'),
-  'pending', 'New member payments are pending and do not assume success');
-select is((select month_revenue from public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000001')),
-  (select month_revenue from phase5_gym_a_revenue_baseline), 'Pending payments do not count toward gym revenue');
-select throws_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000004', 10, 'cash', null, null)$$,
+  'completed', 'Manual membership payments are recorded as completed');
+select is((select (payment_date at time zone 'Asia/Kolkata')::date from public.member_payments where reference = 'P5-A-1'),
+  current_date, 'The selected payment date is preserved');
+select is((select 100 - sum(amount) from public.member_payments where membership_id = 'eeeeeeee-0000-4000-8000-000000000003' and status = 'completed'),
+  59.75::numeric, 'Partial payment leaves the correct membership balance');
+select throws_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000004', 'eeeeeeee-0000-4000-8000-000000000004', 10, current_date, 'cash', null, null)$$,
   '42501', null, 'Gym A cannot create a payment for a Gym B member');
-select throws_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000003', -1, 'cash', null, null)$$,
+select throws_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000003', -1, current_date, 'cash', null, null)$$,
   '23514', null, 'Negative member payments are rejected');
+select throws_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000003', 1,
+  (now() at time zone 'Asia/Kolkata')::date + 1, 'cash', null, null)$$,
+  '22023', null, 'Future member payment dates are rejected');
 select throws_ok($$insert into public.member_payments(gym_id, member_id, amount, payment_method)
   values ('bbbbbbbb-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000004', 10, 'cash')$$,
-  '23503', null, 'A payment cannot reference a member from another gym');
+  '42501', null, 'A payment cannot reference a member from another gym');
 select throws_ok($$insert into public.member_payments(gym_id, member_id, membership_id, amount, payment_method)
   values ('bbbbbbbb-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000004', 10, 'cash')$$,
-  '23503', null, 'A payment cannot reference another gym member membership');
+  '42501', null, 'A payment cannot reference another gym member membership');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000002', true);
-select lives_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000004', 25, 'cash', 'P5-B-1', null)$$,
+select lives_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000004', 'eeeeeeee-0000-4000-8000-000000000004', 25, current_date, 'cash', 'P5-B-1', null)$$,
   'Gym B can record its own member payment');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000001', true);
 select is((select count(*) from public.member_payments where reference = 'P5-B-1'),
   0::bigint, 'Gym A cannot read Gym B member payments');
-select lives_ok($$update public.member_payments set status = 'completed' where reference = 'P5-B-1'$$,
+select lives_ok($$update public.member_payments set reference = 'P5-B-MODIFIED' where reference = 'P5-B-1'$$,
   'A Gym A update query cannot modify Gym B payments');
 reset role;
-select is((select status from public.member_payments where reference = 'P5-B-1'),
-  'pending', 'Gym B payment remains unchanged after Gym A update');
+select is((select reference from public.member_payments where reference = 'P5-B-1'),
+  'P5-B-1', 'Gym B payment remains unchanged after Gym A update');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000001', true);
-select lives_ok($$update public.member_payments set status = 'completed' where reference = 'P5-A-1'$$,
-  'Gym A can complete its own pending payment');
-select is((select month_revenue from public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000001')),
-  (select month_revenue + 100.55 from phase5_gym_a_revenue_baseline), 'Completed member payments count toward gym revenue');
-select lives_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000003', 50, 'cash', 'P5-A-FAILED', null)$$,
-  'Gym A can record an additional pending payment for integrity checks');
-select lives_ok($$update public.member_payments set status = 'failed' where reference = 'P5-A-FAILED'$$,
-  'A pending member payment can transition to failed');
-select is((select month_revenue from public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000001')),
-  (select month_revenue + 100.55 from phase5_gym_a_revenue_baseline), 'Failed payments do not count toward gym revenue');
-select lives_ok($$select public.create_member_payment('cccccccc-0000-4000-8000-000000000003', 35, 'card', 'P5-A-REFUND', null)$$,
-  'Gym A can record a refundable pending payment');
-select lives_ok($$update public.member_payments set status = 'completed' where reference = 'P5-A-REFUND'$$,
-  'Refundable payment can first be completed');
-select lives_ok($$update public.member_payments set status = 'refunded' where reference = 'P5-A-REFUND'$$,
+select lives_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000003', 20.25, current_date, 'card', 'P5-A-2', null)$$,
+  'Gym A can record a second partial membership payment');
+select is((select sum(amount) from public.member_payments where membership_id = 'eeeeeeee-0000-4000-8000-000000000003' and status = 'completed'),
+  60.50::numeric, 'Completed partial payments accumulate against the membership');
+select is((select 100 - sum(amount) from public.member_payments where membership_id = 'eeeeeeee-0000-4000-8000-000000000003' and status = 'completed'),
+  39.50::numeric, 'Outstanding balance reflects both partial payments');
+select throws_ok($$select public.record_member_membership_payment(
+  'cccccccc-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000003', 39.51, current_date, 'cash', null, null)$$,
+  '22023', null, 'Membership overpayment is rejected');
+select lives_ok($$update public.member_payments set status = 'refunded' where reference = 'P5-A-1'$$,
   'A completed payment can be marked refunded without deleting its history');
 select is((select month_revenue from public.get_gym_dashboard_summary('bbbbbbbb-0000-4000-8000-000000000001')),
-  (select month_revenue + 100.55 from phase5_gym_a_revenue_baseline), 'Refunded payments are excluded from gym revenue');
-select is((select count(*) from public.member_payments where reference = 'P5-A-REFUND' and status = 'refunded'),
+  (select month_revenue + 20.25 from phase5_gym_a_revenue_baseline), 'Refunded payments are excluded from gym revenue');
+select is((select count(*) from public.member_payments where reference = 'P5-A-1' and status = 'refunded'),
   1::bigint, 'Refunded payment history remains available');
 select ok(exists(select 1 from public.audit_logs where actor_user_id = 'aaaaaaaa-0000-4000-8000-000000000001'
   and gym_id = 'bbbbbbbb-0000-4000-8000-000000000001' and action = 'member_payment.recorded'
   and entity_id = (select id from public.member_payments where reference = 'P5-A-1')),
   'Member payment creation is written to the existing audit log');
 select ok(exists(select 1 from public.audit_logs where actor_user_id = 'aaaaaaaa-0000-4000-8000-000000000001'
-  and gym_id = 'bbbbbbbb-0000-4000-8000-000000000001' and action = 'member_payment.status_changed'
-  and entity_id = (select id from public.member_payments where reference = 'P5-A-1')),
-  'Member payment settlement is written to the existing audit log');
-select ok(exists(select 1 from public.audit_logs where actor_user_id = 'aaaaaaaa-0000-4000-8000-000000000001'
   and gym_id = 'bbbbbbbb-0000-4000-8000-000000000001' and action = 'member_payment.refunded'
-  and entity_id = (select id from public.member_payments where reference = 'P5-A-REFUND')),
+  and entity_id = (select id from public.member_payments where reference = 'P5-A-1')),
   'Member payment refund is written to the existing audit log');
+select ok(exists(select 1 from public.audit_logs where actor_user_id = 'aaaaaaaa-0000-4000-8000-000000000001'
+  and gym_id = 'bbbbbbbb-0000-4000-8000-000000000001' and action = 'member_payment.recorded'
+  and entity_id = (select id from public.member_payments where reference = 'P5-A-2')),
+  'The additional partial payment is written to the existing audit log');
 select is((select count(*) from public.platform_subscription_payments where gym_id = 'bbbbbbbb-0000-4000-8000-000000000001'), 0::bigint,
   'Gym admin cannot see the separate VYRO platform billing ledger');
 reset role;
@@ -348,10 +374,13 @@ select ok(exists(select 1 from public.audit_logs where actor_user_id = 'aaaaaaaa
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000001', true);
-select is((public.get_gym_report('bbbbbbbb-0000-4000-8000-000000000001', current_date - 30, current_date)->'members'->>'total')::bigint,
-  (select count(*) from public.members where gym_id = 'bbbbbbbb-0000-4000-8000-000000000001'),
-  'Gym A report member totals match only Gym A member data');
-select throws_ok($$select public.get_gym_report('bbbbbbbb-0000-4000-8000-000000000002', current_date - 7, current_date)$$,
+select is((public.get_gym_report('bbbbbbbb-0000-4000-8000-000000000001',
+  (now() at time zone 'Asia/Kolkata')::date - 30, (now() at time zone 'Asia/Kolkata')::date)->'members'->>'total')::bigint,
+  (select count(*) from public.members where gym_id = 'bbbbbbbb-0000-4000-8000-000000000001'
+    and status <> 'archived' and archived_at is null),
+  'Gym A report counts only its active, non-archived member data');
+select throws_ok($$select public.get_gym_report('bbbbbbbb-0000-4000-8000-000000000002',
+  (now() at time zone 'Asia/Kolkata')::date - 7, (now() at time zone 'Asia/Kolkata')::date)$$,
   '42501', null, 'Gym A cannot query Gym B report data');
 select throws_ok($$select public.get_platform_report(current_date - 7, current_date)$$,
   '42501', null, 'Gym Admin cannot access platform reports');
@@ -402,9 +431,11 @@ select throws_ok($$select * from public.notifications limit 1$$,
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-000000000003', true);
-select lives_ok($$select public.get_platform_report(current_date - 30, current_date)$$,
+select lives_ok($$select public.get_platform_report((now() at time zone 'Asia/Kolkata')::date - 30,
+  (now() at time zone 'Asia/Kolkata')::date)$$,
   'Platform Owner can access authorized platform reports');
-select ok((public.get_platform_report(current_date - 30, current_date)->'revenue'->>'completed')::numeric >= 500,
+select ok((public.get_platform_report((now() at time zone 'Asia/Kolkata')::date - 30,
+  (now() at time zone 'Asia/Kolkata')::date)->'revenue'->>'completed')::numeric >= 500,
   'Platform report revenue includes completed VYRO billing only');
 select lives_ok($$select public.sync_in_app_notifications()$$, 'Platform Owner can generate scoped subscription expiry notifications');
 select lives_ok($$select public.set_notification_preference('gym_subscription_expiring', false)$$,

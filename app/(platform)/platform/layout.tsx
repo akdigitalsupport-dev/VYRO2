@@ -1,11 +1,13 @@
-import { AppShell } from "@/components/app-shell";
-import { requireRole } from "@/lib/auth/guards";
-import { loadNotificationCenter } from "@/lib/notifications/server";
+import { WorkspaceShell } from "@/components/shells/workspace-shell";
+import { requirePlatformOwner } from "@/lib/auth/guards";
+import { platformNav } from "@/lib/navigation/platform";
 
-export const dynamic = "force-dynamic";
+export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
+  const user = await requirePlatformOwner();
 
-export default async function PlatformLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const identity = await requireRole("platform_owner");
-  const notificationData = await loadNotificationCenter(identity);
-  return <AppShell role={identity.role} displayName={identity.displayName} notifications={notificationData.notifications} unreadCount={notificationData.unreadCount} timeZone={notificationData.timeZone}>{children}</AppShell>;
+  return (
+    <WorkspaceShell eyebrow="VYRO Platform" title="Platform Admin" nav={platformNav} accountLabel={user.email ?? "Platform account"}>
+      {children}
+    </WorkspaceShell>
+  );
 }

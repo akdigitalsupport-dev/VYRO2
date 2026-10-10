@@ -36,6 +36,14 @@ export async function markAllNotificationsRead(formData: FormData) {
   revalidatePath(access.audience === "platform" ? "/platform" : "/gym", "layout");
 }
 
+export async function loadNotifications(audience: "gym" | "platform") {
+  const identity = audience === "platform"
+    ? await requireRole("platform_owner")
+    : await requireRole("gym_admin");
+  const { loadNotificationCenter } = await import("./server");
+  return loadNotificationCenter(identity);
+}
+
 export async function saveNotificationPreferences(formData: FormData) {
   const access = await authorizeAudience(formData.get("audience"));
   if (!access) return;

@@ -11,7 +11,7 @@ test("platform owners route to the platform workspace and cannot enter the gym w
 });
 
 test("gym admins route to their gym workspace and cannot enter platform routes", () => {
-  assert.equal(workspacePath("gym_admin", 1), "/gym/dashboard");
+  assert.equal(workspacePath("gym_admin", 1), "/gym/command-center");
   assert.equal(canAccessRole("gym_admin", "gym_admin"), true);
   assert.equal(canAccessRole("gym_admin", "platform_owner"), false);
 });

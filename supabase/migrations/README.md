@@ -1,0 +1,31 @@
+-- Database migrations live here.
+-- Phase 0: structure only. No schema, no demo seed, no production data.
+--
+-- Naming:
+--   YYYYMMDDHHMM_descriptive_name.sql
+-- Example:
+--   202610010001_tenant_foundation.sql
+--
+-- Rules:
+-- - Every tenant-owned table must include organization_id.
+-- - Enable PostgreSQL RLS in the same migration that creates the table.
+-- - Never drop tables or columns without an explicit review.
+-- - Never seed fake payments into a production database.
+--
+-- Clean install prerequisite:
+--   20261008000350_clean_install_storage_path_gym_id.sql is intentionally
+--   ordered after 202610080003_membership_payment_integrity.sql and before
+--   202610080004_operations_suite.sql. It restores the verified helper that
+--   the operations migration depends on but which was absent from the tracked
+--   historical chain. CREATE OR REPLACE preserves the function identity and
+--   dependencies when this signature already exists; the following REVOKE and
+--   GRANT statements reassert its intended privileges. This does not prove
+--   that a hosted database has recorded this migration version.
+--
+-- With all migration files staged in a fresh local project, Supabase CLI
+-- 2.120.0 supports this explicit sequence:
+--   npx supabase db start --workdir <project>
+--   npx supabase migration up --local --workdir <project>
+-- The CLI help describes db start as starting local Postgres and migration up
+-- --local as applying pending migrations to that local database. Confirm the
+-- overlay is applied before 202610080004 in the disposable rehearsal.
