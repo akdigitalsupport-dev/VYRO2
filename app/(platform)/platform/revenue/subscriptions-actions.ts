@@ -15,7 +15,7 @@ const pricingSchema=z.object({
   billing_period:z.enum(["monthly","quarterly","yearly","custom"]),
   expires_on:z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"Select a valid expiry date."),
 });
-const statusSchema=z.object({subscription_id:z.string().uuid(),next_status:z.enum(["trial","active","past_due","expired","suspended","cancelled"])});
+const statusSchema=z.object({subscription_id:z.string().uuid(),next_status:z.enum(["trial","active","past_due","expired","suspended","cancelled"]),activation_expires_on:z.string().optional().default("")});
 function get(fd:FormData,key:string){const v=fd.get(key);return typeof v==="string"?v:""}
 function errs(error:z.ZodError){const out:Record<string,string>={};for(const issue of error.issues){const key=String(issue.path[0]??"");if(key&&!out[key])out[key]=issue.message;}return out;}
 function previewBlocked():FormActionState{return {status:"error",message:"SaaS pricing and subscription writes are disabled in preview builds to protect production data."};}
@@ -59,22 +59,49 @@ export async function updateSubscriptionPricingAction(_previousState:FormActionS
 
 export async function updateSubscriptionStatusAction(_previousState:FormActionState,fd:FormData):Promise<FormActionState>{
  await requirePlatformOwner();if(process.env.VERCEL_ENV!=="production")return previewBlocked();
- const parsed=statusSchema.safeParse({subscription_id:get(fd,"subscription_id"),next_status:get(fd,"next_status")});
+ const parsed=statusSchema.safeParse({subscription_id:get(fd,"subscription_id"),next_status:get(fd,"next_status"),activation_expires_on:get(fd,"activation_expires_on")});
  if(!parsed.success)return {status:"error",message:"Choose a valid subscription status."};
  const {subscription_id,next_status}=parsed.data;
  const supabase=await createServerSupabaseClient();
- const {data:subscription,error:readError}=await supabase.from("platform_subscriptions").select("id,status,amount,expires_on").eq("id",subscription_id).maybeSingle();
+ const {data:subscription,error:readError}=await supabase.from("platform_subscriptions").select("id,status,amount,starts_on,expires_on,billing_period").eq("id",subscription_id).maybeSingle();
  if(readError||!subscription)return {status:"error",message:"Subscription could not be found."};
  if(subscription.status===next_status)return {status:"success",message:"Subscription is already in that status.",recordId:subscription.id};
+ let renewedDates:{starts_on:string;expires_on:string}|null=null;
  if(next_status==="active"){
   if(Number(subscription.amount)<=0)return {status:"error",message:"Set a paid plan or custom price before activating this subscription."};
   const {count,error:paymentError}=await supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("subscription_id",subscription_id).eq("status","completed");
   if(paymentError||!count)return {status:"error",message:"To activate a paid subscription, first record and verify at least one payment in SaaS Payments."};
-  if(subscription.expires_on<todayInIndia())return {status:"error",message:"Extend the subscription expiry date before activating it."};
+  const today=todayInIndia();
+  const startsPaidTerm=subscription.status==="trial"||subscription.expires_on<today;
+  if(startsPaidTerm){
+    let newExpiry:string;
+    if(subscription.billing_period==="custom"){
+      const selected=parsed.data.activation_expires_on;
+      const date=new Date(`${selected}T00:00:00Z`);
+      if(!selected||Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==selected||selected<today)
+        return {status:"error",message:"Set a valid future paid-term expiry date for this custom agreement.",fieldErrors:{activation_expires_on:"Choose a real date today or later."}};
+      newExpiry=selected;
+    }else{
+      newExpiry=periodEndFrom(today,subscription.billing_period);
+    }
+    renewedDates={starts_on:today,expires_on:newExpiry};
+  }
  }
- const {data,error}=await supabase.from("platform_subscriptions").update({status:next_status}).eq("id",subscription_id).eq("status",subscription.status).select("id").maybeSingle();
+ const updatePayload={status:next_status,...(renewedDates??{})};
+ const {data,error}=await supabase.from("platform_subscriptions").update(updatePayload).eq("id",subscription_id).eq("status",subscription.status).select("id").maybeSingle();
  if(error||!data)return {status:"error",message:"This transition was rejected by the subscription lifecycle rules. Refresh and review the current status."};
  revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
- return {status:"success",message:`Subscription status changed to ${next_status.replaceAll("_"," ")}.`,recordId:data.id};
+ return {status:"success",message:renewedDates?`Subscription activated with a new paid term through ${renewedDates.expires_on}.`: `Subscription status changed to ${next_status.replaceAll("_"," ")}.`,recordId:data.id};
 }
 function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${x.year}-${x.month}-${x.day}`;}
+
+function periodEndFrom(start:string,billingPeriod:string):string{
+ const [year,month,day]=start.split("-").map(Number);
+ const months=billingPeriod==="quarterly"?3:billingPeriod==="yearly"?12:1;
+ const targetFirst=new Date(Date.UTC(year,month-1+months,1));
+ const lastDay=new Date(Date.UTC(targetFirst.getUTCFullYear(),targetFirst.getUTCMonth()+1,0)).getUTCDate();
+ const clampedDay=Math.min(day,lastDay);
+ const end=new Date(Date.UTC(targetFirst.getUTCFullYear(),targetFirst.getUTCMonth(),clampedDay));
+ end.setUTCDate(end.getUTCDate()-1);
+ return end.toISOString().slice(0,10);
+}
