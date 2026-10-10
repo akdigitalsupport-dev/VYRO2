@@ -64,6 +64,29 @@ export async function createPendingPlatformPaymentAction(
     return { status: "error", message: "This subscription does not have a configured positive price. Configure pricing before recording a payment." };
   }
 
+  const { data: existingPayments, error: existingPaymentsError } = await supabase
+    .from("platform_subscription_payments")
+    .select("amount,status,currency")
+    .eq("subscription_id", subscription.id)
+    .in("status", ["pending", "completed"]);
+  if (existingPaymentsError) {
+    return { status: "error", message: "Existing payment records could not be verified. Refresh the ledger and try again." };
+  }
+  const committedAmount = (existingPayments ?? [])
+    .filter((payment) => payment.currency.trim() === subscription.currency.trim())
+    .reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const remainingAmount = Math.round((Number(subscription.amount) - committedAmount) * 100) / 100;
+  if (remainingAmount <= 0) {
+    return { status: "error", message: "This subscription's configured amount is already covered by pending and completed records." };
+  }
+  if (parsed.data.amount > remainingAmount + 0.000001) {
+    return {
+      status: "error",
+      message: `This payment exceeds the remaining amount of ${new Intl.NumberFormat("en-IN", { style: "currency", currency: subscription.currency.trim(), maximumFractionDigits: 2 }).format(remainingAmount)}.`,
+      fieldErrors: { amount: "Payment amount cannot exceed the remaining subscription amount." },
+    };
+  }
+
   const { data: record, error } = await supabase
     .from("platform_subscription_payments")
     .insert({
