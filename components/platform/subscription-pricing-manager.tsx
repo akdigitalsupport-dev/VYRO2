@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initialFormActionState } from "@/lib/forms";
 
-type PlanOption={id:string;name:string;price:number|string|null;currency:string;billing_period:string;trial_days:number};
+type PlanOption={id:string;name:string;price:number|string|null;currency:string;billing_period:string;trial_days:number;is_active:boolean};
 type SubscriptionOption={id:string;gym_id:string;plan_id:string|null;plan_name:string;amount:number|string;currency:string;status:string;billing_period:string;starts_on:string;expires_on:string;gym_name:string;owner_name:string|null;owner_email:string|null};
 
 export function SubscriptionPricingManager({subscriptions,plans}:{subscriptions:SubscriptionOption[];plans:PlanOption[]}){
