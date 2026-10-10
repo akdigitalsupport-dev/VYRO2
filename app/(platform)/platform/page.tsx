@@ -10,6 +10,15 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Overview" };
 
+type PaymentAggregate = {
+  currency: string;
+  total_records: number | string;
+  pending_count: number | string;
+  completed_count: number | string;
+  completed_amount_all: number | string;
+  completed_amount_since: number | string;
+};
+
 export default async function PlatformOverviewPage() {
   const supabase = await createServerSupabaseClient();
   const today = dateInIndia(0);
@@ -37,8 +46,9 @@ export default async function PlatformOverviewPage() {
 
   const results = [totalGyms,activeGyms,expiringGyms,suspendedGyms,trialSubscriptions,activeSubscriptions,pastDueSubscriptions,expiredSubscriptions,pendingPayments,paymentsThisMonth,upcomingExpiry,recentActivity,latestGyms];
   const summaryError = results.some(result => result.error);
-  const verifiedInr = (paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() === "INR").reduce((sum,payment) => sum + Number(payment.completed_amount_since),0);
-  const verifiedOtherCurrencies = [...new Set((paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() !== "INR" && Number(payment.completed_amount_since) > 0).map(payment=>payment.currency.trim()))];
+  const paymentTotalsThisMonth = (paymentsThisMonth.data ?? []) as PaymentAggregate[];
+  const verifiedInr = paymentTotalsThisMonth.filter(payment => payment.currency.trim() === "INR").reduce((sum,payment) => sum + Number(payment.completed_amount_since),0);
+  const verifiedOtherCurrencies = [...new Set(paymentTotalsThisMonth.filter(payment => payment.currency.trim() !== "INR" && Number(payment.completed_amount_since) > 0).map(payment=>payment.currency.trim()))];
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
