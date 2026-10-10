@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { loadNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/notifications/actions";
 import type { InAppNotification } from "@/lib/notifications/server";
 import { PushNotificationToggle } from "@/components/shells/push-notification-toggle";
@@ -27,6 +27,31 @@ export function NotificationCenter({
   const [loaded, setLoaded] = useState(initialNotifications.length > 0);
   const [error, setError] = useState("");
   const [loading, startLoading] = useTransition();
+  const centerRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const center = centerRef.current;
+      if (center?.open && event.target instanceof Node && !center.contains(event.target)) {
+        center.open = false;
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      const center = centerRef.current;
+      if (!center?.open) return;
+      center.open = false;
+      center.querySelector("summary")?.focus();
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   function handleToggle(event: React.SyntheticEvent<HTMLDetailsElement>) {
     if (!event.currentTarget.open || loaded || loading) return;
@@ -50,7 +75,7 @@ export function NotificationCenter({
   }
 
   return (
-    <details className="notification-center" onToggle={handleToggle}>
+    <details ref={centerRef} className="notification-center" onToggle={handleToggle}>
       <summary aria-label={`${unreadCount} unread notifications`} title="Notifications">
         <span aria-hidden="true">♢</span>
         <span className="notification-label">Notifications</span>
