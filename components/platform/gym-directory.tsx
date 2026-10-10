@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
+import { GymStatusControl } from "@/components/platform/gym-status-control";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -98,7 +99,7 @@ export async function GymDirectory({
             <p className="text-xs text-muted-foreground">Current platform records</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[920px] text-left text-sm">
               <thead className="bg-background/55 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Gym / Owner</th>
@@ -106,6 +107,7 @@ export async function GymDirectory({
                   <th className="px-4 py-3 font-semibold">Gym status</th>
                   <th className="px-4 py-3 font-semibold">Trial / expiry</th>
                   <th className="px-4 py-3 font-semibold">Created</th>
+                  <th className="px-4 py-3 font-semibold">Access controls</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -136,6 +138,7 @@ export async function GymDirectory({
                       ) : "—"}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(gym.created_at)}</td>
+                    <td className="px-4 py-3"><GymStatusControl gymId={gym.id} status={gym.status}/></td>
                   </tr>
                 ))}
               </tbody>
