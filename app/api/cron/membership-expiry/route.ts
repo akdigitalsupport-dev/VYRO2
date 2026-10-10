@@ -47,9 +47,12 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminSupabaseClient();
     const { data: platformExpiredCount, error: platformExpiryError } = await supabase.rpc("expire_platform_subscriptions");
+    const platformSubscriptionExpiryStatus = platformExpiryError ? "failed" : "ok";
     if (platformExpiryError) {
+      // Do not skip existing gym-member notification delivery just because the
+      // new SaaS-expiry migration is missing or fails. Report the failure for
+      // monitoring while allowing the established queue to finish.
       console.error("Platform subscription expiry job failed", { code: platformExpiryError.code });
-      return Response.json({ error: "platform_subscription_expiry_failed" }, { status: 500 });
     }
     const platformSubscriptionsExpired = Number(platformExpiredCount ?? 0);
 
@@ -65,7 +68,7 @@ export async function GET(request: Request) {
       return Response.json({ error: "delivery_queue_unavailable" }, { status: 500 });
     }
     const queued = ((deliveries ?? []) as ClaimedDeliveryRow[]).map((row) => ({ ...row, id: row.delivery_id })) as DeliveryRow[];
-    if (!queued.length) return Response.json({ createdEvents: Number(materialized ?? 0), delivered: 0, failed: 0, platformSubscriptionsExpired });
+    if (!queued.length) return Response.json({ createdEvents: Number(materialized ?? 0), delivered: 0, failed: 0, platformSubscriptionsExpired, platformSubscriptionExpiryStatus });
 
     const notificationIds = [...new Set(queued.map((row) => row.notification_id))];
     const subscriptionIds = [...new Set(queued.map((row) => row.subscription_id))];
@@ -119,7 +122,7 @@ export async function GET(request: Request) {
       }));
     }
 
-    return Response.json({ createdEvents: Number(materialized ?? 0), delivered, failed, checked: queued.length, platformSubscriptionsExpired });
+    return Response.json({ createdEvents: Number(materialized ?? 0), delivered, failed, checked: queued.length, platformSubscriptionsExpired, platformSubscriptionExpiryStatus });
   } catch (cause) {
     console.error("Membership expiry cron failed", { error: cause instanceof Error ? cause.name : "unknown" });
     return Response.json({ error: "membership_expiry_cron_failed" }, { status: 500 });
