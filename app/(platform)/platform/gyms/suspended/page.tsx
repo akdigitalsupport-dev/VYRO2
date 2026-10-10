@@ -9,5 +9,5 @@ export default async function SuspendedGymsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  return <GymDirectory filter="suspended" searchQuery={q} title="Suspended Gyms" description="Gyms whose workspace or VYRO subscription is suspended." />;
+  return <GymDirectory filter="suspended" searchQuery={q} title="Suspended Gyms" description="Customer workspaces whose gym status is suspended. Subscription status remains visible in each row." />;
 }
