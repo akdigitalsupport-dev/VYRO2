@@ -145,3 +145,36 @@ export async function markPlatformPaymentReceivedAction(
   revalidatePath("/platform/revenue");
   return { status: "success", message: "Payment marked completed after confirmation of receipt." };
 }
+
+export async function cancelPendingPlatformPaymentAction(
+  _previousState: FormActionState,
+  formData: FormData,
+): Promise<FormActionState> {
+  await requirePlatformOwner();
+  if (process.env.VERCEL_ENV !== "production") {
+    return { status: "error", message: "Payment changes are disabled in preview builds to protect production data." };
+  }
+  const paymentId = value(formData, "payment_id");
+  if (!z.string().uuid().safeParse(paymentId).success) {
+    return { status: "error", message: "This payment record is invalid. Refresh and try again." };
+  }
+  if (value(formData, "confirmed") !== "yes") {
+    return { status: "error", message: "Confirm that this pending record should be cancelled." };
+  }
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("platform_subscription_payments")
+    .update({ status: "cancelled" })
+    .eq("id", paymentId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (error || !data) {
+    return { status: "error", message: "Only pending payment records can be cancelled. Refresh the ledger and check the current status." };
+  }
+  revalidatePath("/platform/revenue/payments");
+  revalidatePath("/platform/revenue/outstanding");
+  revalidatePath("/platform/revenue");
+  revalidatePath("/platform/plans/pricing");
+  return { status: "success", message: "Pending payment record cancelled. It is no longer counted against the subscription amount.", recordId: data.id };
+}
