@@ -1,0 +1,38 @@
+name: Platform Admin checks
+
+on:
+  push:
+    branches:
+      - feature/platform-admin-phase1-tenant
+  pull_request:
+    branches:
+      - vyro-phase3-6-baseline
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-admin-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
