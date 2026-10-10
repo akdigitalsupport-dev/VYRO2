@@ -18,7 +18,9 @@ export function SubscriptionPricingManager({subscriptions,plans}:{subscriptions:
 function SubscriptionPricingCard({subscription,plans}:{subscription:SubscriptionOption;plans:PlanOption[]}){
  const activePlans=plans.filter(p=>p.is_active!==false && p.price!==null && Number(p.price)>0);
  const linkedPlan=plans.find(p=>p.id===subscription.plan_id);
- const [mode,setMode]=useState<"standard"|"custom">(linkedPlan?"standard":"custom");
+ const [mode,setMode]=useState<"standard"|"custom">(linkedPlan?.is_active?"standard":"custom");
+ const [selectedPlanId,setSelectedPlanId]=useState(linkedPlan?.is_active?linkedPlan.id:"");
+ const selectedPlan=activePlans.find(plan=>plan.id===selectedPlanId);
  const [priceState,priceAction,pricePending]=useActionState(updateSubscriptionPricingAction,initialFormActionState);
  const [statusState,statusAction,statusPending]=useActionState(updateSubscriptionStatusAction,initialFormActionState);
  const transitions:Record<string,string[]>={trial:["active","past_due","expired","suspended","cancelled"],active:["past_due","expired","suspended","cancelled"],past_due:["active","expired","suspended","cancelled"],suspended:["active","expired","cancelled"],expired:["active","cancelled"],cancelled:[]};
@@ -34,11 +36,20 @@ function SubscriptionPricingCard({subscription,plans}:{subscription:Subscription
     {priceState.message?<p role={priceState.status==="error"?"alert":"status"} className={`rounded-md border p-2 text-xs ${priceState.status==="error"?"border-destructive/40 bg-destructive/5 text-destructive":"border-positive/40 bg-positive/5 text-positive"}`}>{priceState.message}</p>:null}
     <input type="hidden" name="subscription_id" value={subscription.id}/>
     <div className="grid gap-1.5"><Label htmlFor={`pricing-mode-${subscription.id}`}>Pricing type</Label><select id={`pricing-mode-${subscription.id}`} name="pricing_mode" value={mode} onChange={e=>setMode(e.target.value as "standard"|"custom")} className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"><option value="standard">Standard SaaS plan</option><option value="custom">Custom agreement</option></select></div>
-    {mode==="standard"?<div className="grid gap-1.5"><Label htmlFor={`plan-${subscription.id}`}>Active plan</Label><select id={`plan-${subscription.id}`} name="plan_id" defaultValue={linkedPlan?.id??""} required className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"><option value="" disabled>Select a plan</option>{activePlans.map(plan=><option key={plan.id} value={plan.id}>{plan.name} · {formatCurrency(Number(plan.price),plan.currency)} / {humanize(plan.billing_period)}</option>)}</select>{activePlans.length===0?<p className="text-xs text-muted-foreground">No active priced plans. Set a price and activate a plan in the SaaS Plans section first.</p>:null}{priceState.fieldErrors?.plan_id?<p className="text-xs text-destructive">{priceState.fieldErrors.plan_id}</p>:null}</div>:<>
+    {mode==="standard"?<div className="grid gap-1.5"><Label htmlFor={`plan-${subscription.id}`}>Active plan</Label><select id={`plan-${subscription.id}`} name="plan_id" value={selectedPlanId} onChange={event=>setSelectedPlanId(event.target.value)} required className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"><option value="" disabled>Select a plan</option>{activePlans.map(plan=><option key={plan.id} value={plan.id}>{plan.name} · {formatCurrency(Number(plan.price),plan.currency)} / {humanize(plan.billing_period)}</option>)}</select>{activePlans.length===0?<p className="text-xs text-muted-foreground">No active priced plans. Set a price and activate a plan in the SaaS Plans section first.</p>:null}{priceState.fieldErrors?.plan_id?<p className="text-xs text-destructive">{priceState.fieldErrors.plan_id}</p>:null}</div>:<>
      <Field id={`custom-name-${subscription.id}`} name="custom_name" label="Custom agreement name" defaultValue={subscription.plan_name==="Free Trial"?"Custom":subscription.plan_name} error={priceState.fieldErrors?.custom_name}/>
-     <Field id={`custom-amount-${subscription.id}`} name="custom_amount" label="Monthly / agreed price (₹)" type="number" min="0.01" step="0.01" defaultValue={Number(subscription.amount)>0?String(subscription.amount):""} error={priceState.fieldErrors?.custom_amount}/>
+     <Field id={`custom-amount-${subscription.id}`} name="custom_amount" label="Price for selected billing period (₹)" type="number" min="0.01" step="0.01" defaultValue={Number(subscription.amount)>0?String(subscription.amount):""} error={priceState.fieldErrors?.custom_amount}/>
     </>}
-    <div className="grid gap-1.5"><Label htmlFor={`billing-${subscription.id}`}>Billing period</Label><select id={`billing-${subscription.id}`} name="billing_period" defaultValue={subscription.billing_period} className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option><option value="custom">Custom</option></select></div>
+    {mode==="standard" ? (
+      <div className="grid gap-1.5">
+        <Label htmlFor={`billing-${subscription.id}`}>Billing period</Label>
+        <p id={`billing-${subscription.id}`} className="min-h-9 rounded-md border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">{selectedPlan ? humanize(selectedPlan.billing_period) : "Choose a configured active plan above"}</p>
+        <input type="hidden" name="billing_period" value={selectedPlan?.billing_period ?? subscription.billing_period}/>
+        <p className="text-xs text-muted-foreground">Standard plans use the billing period configured on the plan itself.</p>
+      </div>
+    ) : (
+      <div className="grid gap-1.5"><Label htmlFor={`billing-${subscription.id}`}>Billing period</Label><select id={`billing-${subscription.id}`} name="billing_period" defaultValue={subscription.billing_period} className="min-h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option><option value="custom">Custom</option></select></div>
+    )}
     <Field id={`expires-${subscription.id}`} name="expires_on" label={subscription.status==="trial"?"Trial expiry date":"Subscription expiry date"} type="date" defaultValue={subscription.expires_on} required error={priceState.fieldErrors?.expires_on}/>
     {subscription.status==="trial"?<p className="text-xs leading-5 text-muted-foreground">Trial subscriptions should remain within the approved maximum 90-day trial period. Set paid pricing before creating a payment record.</p>:null}
     <Button type="submit" variant="outline" disabled={pricePending}>{pricePending?"Saving…":"Save pricing / expiry"}</Button>
