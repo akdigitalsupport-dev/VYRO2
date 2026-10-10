@@ -105,6 +105,160 @@ select {
   outline-offset: 2px;
 }
 
+.notification-center {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+}
+
+.notification-center[open] {
+  z-index: 60;
+}
+
+.notification-center > summary {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.notification-center > summary::-webkit-details-marker {
+  display: none;
+}
+
+.notification-center > summary::marker {
+  content: "";
+}
+
+.notification-center > summary:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.notification-count {
+  display: inline-grid;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  place-items: center;
+  padding-inline: 0.25rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.notification-popover {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  z-index: 60;
+  display: block;
+  width: min(25rem, calc(100vw - 2rem));
+  max-height: min(36rem, calc(100dvh - 6rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--elevated);
+  color: var(--foreground);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+}
+
+.notification-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--elevated);
+}
+
+.notification-heading strong {
+  font-size: 0.9rem;
+}
+
+.notification-popover ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.5rem;
+  list-style: none;
+}
+
+.notification-popover li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+}
+
+.notification-popover li.is-unread {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.notification-popover li > div {
+  min-width: 0;
+}
+
+.notification-popover li strong {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.notification-popover li p {
+  margin: 0.25rem 0;
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notification-popover li time {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+}
+
+.notification-action {
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  color: #f0a477;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notification-action:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.notification-empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+}
+
 .login-page {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
