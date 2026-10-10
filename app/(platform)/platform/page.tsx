@@ -29,7 +29,7 @@ export default async function PlatformOverviewPage() {
     supabase.from("platform_subscriptions").select("id", { count: "exact", head: true }).eq("status", "past_due"),
     supabase.from("platform_subscriptions").select("id", { count: "exact", head: true }).eq("status", "expired"),
     supabase.from("platform_subscription_payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("platform_subscription_payments").select("amount,currency,payment_date").eq("status", "completed").gte("payment_date", monthStart).limit(1000),
+    supabase.rpc("get_platform_payment_aggregates", { p_since: monthStart }),
     supabase.from("platform_subscriptions").select("id,gym_id,plan_name,status,expires_on,gyms!platform_subscriptions_gym_id_fkey(name)").in("status", ["trial", "active", "past_due"]).gte("expires_on", today).lte("expires_on", sevenDays).order("expires_on", { ascending: true }).limit(10),
     supabase.from("audit_logs").select("id,action,entity_type,created_at,gym_id,gyms!audit_logs_gym_id_fkey(name)").order("created_at", { ascending: false }).limit(6),
     supabase.from("gyms").select("id,name,status,created_at").order("created_at", { ascending: false }).limit(5),
@@ -37,8 +37,8 @@ export default async function PlatformOverviewPage() {
 
   const results = [totalGyms,activeGyms,expiringGyms,suspendedGyms,trialSubscriptions,activeSubscriptions,pastDueSubscriptions,expiredSubscriptions,pendingPayments,paymentsThisMonth,upcomingExpiry,recentActivity,latestGyms];
   const summaryError = results.some(result => result.error);
-  const verifiedInr = (paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() === "INR").reduce((sum,payment) => sum + Number(payment.amount),0);
-  const verifiedOtherCurrencies = [...new Set((paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() !== "INR").map(payment=>payment.currency.trim()))];
+  const verifiedInr = (paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() === "INR").reduce((sum,payment) => sum + Number(payment.completed_amount_since),0);
+  const verifiedOtherCurrencies = [...new Set((paymentsThisMonth.data ?? []).filter(payment => payment.currency.trim() !== "INR" && Number(payment.completed_amount_since) > 0).map(payment=>payment.currency.trim()))];
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
