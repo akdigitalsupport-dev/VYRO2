@@ -57,8 +57,8 @@ export async function createPendingPlatformPaymentAction(
   if (subscriptionError || !subscription) {
     return { status: "error", message: "The selected subscription could not be verified. Refresh and try again." };
   }
-  if (!["active", "past_due", "suspended"].includes(subscription.status)) {
-    return { status: "error", message: "Only a paid subscription can have a manual payment record. Free trials have no payment due." };
+  if (!["trial", "active", "past_due", "suspended"].includes(subscription.status)) {
+    return { status: "error", message: "Only a subscription with a configured paid price can have a manual payment record. Free trials without a paid conversion have no payment due." };
   }
 
   const { data: record, error } = await supabase
