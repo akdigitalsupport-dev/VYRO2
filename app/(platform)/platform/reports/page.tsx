@@ -51,7 +51,7 @@ export default async function PlatformReportsPage() {
       <CommandCenterCard title="Payment ledger this month">
         <p className="font-display text-3xl font-semibold tabular-nums">{formatInr(completedInr)}</p>
         <p className="mt-2 text-sm text-muted-foreground">Completed INR records since the start of this month. No conversion is applied to other currencies{completedOtherCurrencies.size? `; other currencies: ${[...completedOtherCurrencies].join(", ")}.`:"."}</p>
-        <p className="mt-3 text-xs text-muted-foreground">The report reads the VYRO SaaS ledger, not gym members' payments.</p>
+        <p className="mt-3 text-xs text-muted-foreground">The report reads the VYRO SaaS ledger, not gym members&apos; payments.</p>
         <Link className="mt-3 inline-block text-sm text-accent underline-offset-4 hover:underline" href="/platform/revenue/payments">Open SaaS payment ledger</Link>
       </CommandCenterCard>
       <CommandCenterCard title="This month's platform activity">
