@@ -28,7 +28,7 @@ export default async function PlatformSystemPage() {
     </div>
     <CommandCenterCard title="Integration configuration checks">
       <div className="divide-y divide-border">{envChecks.map(check=><div key={check.label} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"><div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${check.configured?"border-positive/30 bg-positive/10 text-positive":"border-warning/30 bg-warning/10 text-warning"}`}>{check.configured?<CheckCircle2 className="h-4 w-4"/>:<CircleHelp className="h-4 w-4"/>}</span><div><p className="text-sm font-medium">{check.label}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{check.detail}</p></div></div><span className={`self-start rounded-full border px-2 py-1 text-xs ${check.configured?"border-positive/30 bg-positive/10 text-positive":"border-warning/30 bg-warning/10 text-warning"}`}>{check.configured?"Configured":"Missing"}</span></div>)}</div>
-      <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">Never paste secret values into this dashboard or into chat. Configure missing values in Vercel's server environment settings, then redeploy. After that, perform real delivery/payment checks to verify integrations.</p>
+      <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">Never paste secret values into this dashboard or into chat. Configure missing values in Vercel&apos;s server environment settings, then redeploy. After that, perform real delivery/payment checks to verify integrations.</p>
     </CommandCenterCard>
   </div>;
 }
