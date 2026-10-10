@@ -8,8 +8,18 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Platform reports" };
 
+type PaymentAggregate = {
+  currency: string;
+  total_records: number | string;
+  pending_count: number | string;
+  completed_count: number | string;
+  completed_amount_all: number | string;
+  completed_amount_since: number | string;
+};
+
 export default async function PlatformReportsPage() {
   const supabase = await createServerSupabaseClient();
+  const monthStart = monthStartInIndia();
   const [
     gyms,totalGyms,activeGyms,trialGyms,suspendedGyms,
     memberships,subscriptions,paymentTotals,pendingPayments,pastDue,
@@ -25,12 +35,13 @@ export default async function PlatformReportsPage() {
     supabase.rpc("get_platform_payment_aggregates",{p_since:monthStartInIndia()}),
     supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("status","pending"),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).eq("status","past_due"),
-    supabase.from("gyms").select("id",{count:"exact",head:true}).gte("created_at",since.toISOString()),
+    supabase.from("gyms").select("id",{count:"exact",head:true}).gte("created_at",monthStart),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).gte("created_at",since.toISOString()),
   ]);
   const error=gyms.error||totalGyms.error||activeGyms.error||trialGyms.error||suspendedGyms.error||memberships.error||subscriptions.error||paymentTotals.error||pendingPayments.error||pastDue.error||recentGymCreated.error||recentSubscriptions.error;
-  const completedInr=(paymentTotals.data??[]).filter(p=>p.currency.trim()==="INR").reduce((sum,p)=>sum+Number(p.completed_amount_since),0);
-  const completedOtherCurrencies=(paymentTotals.data??[]).filter(p=>p.currency.trim()!=="INR"&&Number(p.completed_amount_since)>0).reduce((set,p)=>set.add(p.currency.trim()),new Set<string>());
+  const paymentTotalsData=(paymentTotals.data??[]) as PaymentAggregate[];
+  const completedInr=paymentTotalsData.filter(p=>p.currency.trim()==="INR").reduce((sum,p)=>sum+Number(p.completed_amount_since),0);
+  const completedOtherCurrencies=paymentTotalsData.filter(p=>p.currency.trim()!=="INR"&&Number(p.completed_amount_since)>0).reduce((set,p)=>set.add(p.currency.trim()),new Set<string>());
 
   return <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
     <PageHeader eyebrow="Reports" title="Platform Reports" description="Tenant growth, subscription states and VYRO payment-ledger activity. Pending payments are excluded from revenue totals; amounts in other currencies are not converted to INR."/>
