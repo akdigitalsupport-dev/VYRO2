@@ -21,6 +21,22 @@ export async function proxy(request: NextRequest) {
   });
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return NextResponse.redirect(new URL("/login", request.url));
+
+  // Preview and deployment-preview URLs currently share production Supabase
+  // configuration. Block ALL Server Actions under workspaces in preview to make
+  // old and new mutation paths equally safe, including actions not yet guarded
+  // individually. GET requests remain available for read-only review.
+  if (
+    process.env.VERCEL_ENV === "preview" &&
+    request.method === "POST" &&
+    request.headers.has("next-action")
+  ) {
+    return new NextResponse("Server actions are disabled in preview to protect production data.", {
+      status: 403,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   return response;
 }
 
