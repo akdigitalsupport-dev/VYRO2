@@ -90,5 +90,4 @@ function Field({id,name,label,type="text",defaultValue,required=false,min,step,e
 function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return String(p.year)+"-"+String(p.month)+"-"+String(p.day);}
 function humanize(value:string){return value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());}
 function formatCurrency(amount:number,currency:string){return new Intl.NumberFormat("en-IN",{style:"currency",currency:currency.trim(),maximumFractionDigits:2}).format(amount);}
-function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`;}
 function formatDate(value:string){const d=new Date(`${value}T00:00:00Z`);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-IN",{dateStyle:"medium",timeZone:"Asia/Kolkata"}).format(d);}
