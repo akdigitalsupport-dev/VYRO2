@@ -143,7 +143,7 @@ describe("server-side workspace access guards", () => {
       role: "gym_admin",
       subscriptions: [{ status: "suspended", expires_on: "2099-01-01" }],
     });
-    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=workspace");
+    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=subscription");
   });
 
   it("denies access when a trial has passed its expiry date", async () => {
@@ -151,7 +151,7 @@ describe("server-side workspace access guards", () => {
       role: "gym_admin",
       subscriptions: [{ status: "trial", expires_on: "2000-01-01" }],
     });
-    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=workspace");
+    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=subscription");
   });
 
   it("F. allows a platform owner into /platform", async () => {
