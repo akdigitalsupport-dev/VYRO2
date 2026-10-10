@@ -9,5 +9,5 @@ export default async function ActiveGymsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  return <GymDirectory filter="active" searchQuery={q} title="Active Gyms" description="Gyms with an active VYRO subscription and no platform suspension." />;
+  return <GymDirectory filter="active" searchQuery={q} title="Active Gyms" description="Customer workspaces whose gym status is active. Trial and payment status remain visible in each row." />;
 }
