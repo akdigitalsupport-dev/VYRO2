@@ -1,57 +1,122 @@
-import { DashboardHeader, DataPanel, EmptyState } from "@/components/dashboard";
-import { ServerTable } from "@/components/server-table";
-import { createPlan, setPlanActive, updatePlan } from "@/lib/gym/actions";
-import { requireRole } from "@/lib/auth/guards";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Metadata } from "next";
+import { CircleCheck, CirclePause, Layers3 } from "lucide-react";
+import { PlanFormDialog, type EditablePlan } from "@/components/plans/plan-form-dialog";
+import { PlanActiveToggle } from "@/components/plans/plan-active-toggle";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { StatCard } from "@/components/ui/stat-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { requireGymAdminContext } from "@/lib/auth/guards";
+import { formatInr } from "@/lib/money";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-type PlanRow = { id: string; name: string; duration_days: number; price: number | string; description: string | null; is_active: boolean };
+export const metadata: Metadata = { title: "Membership plans" };
 
-export default async function PlansPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
-  const [identity, params] = await Promise.all([requireRole("gym_admin"), searchParams]);
-  const supabase = await createSupabaseServerClient();
-  const [{ data, error }, { data: settings }] = await Promise.all([
-    supabase.from("membership_plans").select("id, name, duration_days, price, description, is_active")
-      .eq("gym_id", identity.gymId!).order("is_active", { ascending: false }).order("name"),
-    supabase.from("gym_settings").select("currency").eq("gym_id", identity.gymId!).maybeSingle(),
-  ]);
-  const currency = settings?.currency || "INR";
-  const plans = (data || []) as PlanRow[];
-  const money = new Intl.NumberFormat("en-IN", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return <>
-    <DashboardHeader eyebrow="Gym workspace" title="Membership plans" description="Create flexible durations and prices for this gym." />
-    {params.error && <p className="form-error" role="alert">{params.error === "validation" ? "Check the plan name, duration and price." : "The plan could not be saved. A plan with that name may already exist."}</p>}
-    {params.saved && <p className="success-message" role="status">Plan saved.</p>}
-    <div className="dashboard-columns">
-      <DataPanel title="Your plans" description={`${plans.length} plans · inactive plans remain attached to historical memberships.`}>
-        {error ? <EmptyState title="Plans could not be loaded" message="Check the database connection and retry." /> : <ServerTable rows={plans} emptyTitle="No plans created" emptyMessage="Create your first flexible membership plan." columns={[
-          { label: "PLAN", className: "table-primary", render: (plan) => plan.name },
-          { label: "DURATION", render: (plan) => `${plan.duration_days} days` },
-          { label: "PRICE", render: (plan) => money.format(Number(plan.price)) },
-          { label: "STATUS", render: (plan) => <span className={`status-badge ${plan.is_active ? "" : "expired"}`}>{plan.is_active ? "Active" : "Inactive"}</span> },
-          { label: "ACTIONS", render: (plan) => <div className="row-actions">
-            <details className="plan-edit"><summary className="button button-secondary">Edit</summary>
-              <form action={updatePlan} className="record-form plan-edit-form">
-                <input type="hidden" name="id" value={plan.id} />
-                <label>Plan name<input name="name" required maxLength={120} defaultValue={plan.name} /></label>
-                <label>Duration in days<input name="duration_days" type="number" min={1} max={3650} step={1} required defaultValue={plan.duration_days} /></label>
-                <label>Price ({currency})<input name="price" type="number" min={0} max={10000000} step="0.01" required defaultValue={Number(plan.price).toFixed(2)} /></label>
-                <label>Description<textarea name="description" rows={2} maxLength={1000} defaultValue={plan.description || ""} /></label>
-                <button className="button button-primary" type="submit">Save plan</button>
-              </form>
-            </details>
-            <form action={setPlanActive}><input type="hidden" name="id" value={plan.id} /><input type="hidden" name="is_active" value={String(!plan.is_active)} /><button className="button button-ghost" type="submit">{plan.is_active ? "Deactivate" : "Activate"}</button></form>
-          </div> },
-        ]} />}
-      </DataPanel>
-      <DataPanel title="Create a plan" description="Use any name and duration that suits this gym.">
-        <form action={createPlan} className="record-form">
-          <label>Plan name<input name="name" required maxLength={120} placeholder="e.g. Strength 12-week" /></label>
-          <label>Duration in days<input name="duration_days" type="number" min={1} max={3650} step={1} required /></label>
-          <label>Price ({currency})<input name="price" type="number" min={0} max={10000000} step="0.01" required /></label>
-          <label>Description<textarea name="description" rows={3} maxLength={1000} /></label>
-          <button className="button button-primary" type="submit">Create plan</button>
-        </form>
-      </DataPanel>
+function PlanCard({ plan }: { plan: EditablePlan }) {
+  return (
+    <article className="rounded-lg border border-border/80 bg-surface p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate font-display text-base font-semibold">{plan.name}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{plan.duration_days.toLocaleString("en-IN")} days</p>
+        </div>
+        <Badge variant={plan.is_active ? "positive" : "default"}>{plan.is_active ? "Active" : "Inactive"}</Badge>
+      </div>
+      <p className="mt-5 font-display text-2xl font-semibold tracking-[-0.04em]">{formatInr(Number(plan.price), { fractionDigits: 2 })}</p>
+      {plan.description ? <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">{plan.description}</p> : null}
+      <div className="mt-4 border-t border-border/70 pt-3">
+        <div className="flex flex-wrap gap-2">
+          <PlanFormDialog plan={plan} />
+          <PlanActiveToggle planId={plan.id} isActive={plan.is_active} />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default async function PlansPage() {
+  const { gymId } = await requireGymAdminContext();
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("membership_plans")
+    .select("id, name, duration_days, price, description, is_active")
+    .eq("gym_id", gymId)
+    .order("is_active", { ascending: false })
+    .order("name", { ascending: true });
+
+  const plans = (data ?? []) as EditablePlan[];
+  const activePlans = plans.filter((plan) => plan.is_active).length;
+  const inactivePlans = plans.length - activePlans;
+
+  return (
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
+      <PageHeader
+        eyebrow="Gym workspace · catalog"
+        title="Membership plans"
+        description="Set the plans your members can join. Each plan belongs to your gym and keeps a snapshot when assigned to a member."
+      >
+        <PlanFormDialog />
+      </PageHeader>
+
+      {error ? (
+        <ErrorState title="Plans could not be loaded" description="Your plan catalog is temporarily unavailable. Refresh the page and try again." />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard icon={Layers3} label="Total plans" value={String(plans.length)} />
+            <StatCard icon={CircleCheck} label="Active" value={String(activePlans)} hint="Available for new members" />
+            <StatCard icon={CirclePause} label="Inactive" value={String(inactivePlans)} hint="Kept for existing records" />
+          </div>
+
+          {plans.length === 0 ? (
+            <EmptyState
+              icon={Layers3}
+              title="No membership plans yet"
+              description="Create your first plan to define its duration and price. You can then select it when adding a member."
+            />
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
+                {plans.map((plan) => <PlanCard key={plan.id} plan={plan} />)}
+              </div>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {plans.map((plan) => (
+                      <TableRow key={plan.id}>
+                        <TableCell>
+                          <p className="font-medium">{plan.name}</p>
+                          {plan.description ? <p className="mt-1 max-w-lg truncate text-xs text-muted-foreground">{plan.description}</p> : null}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{plan.duration_days.toLocaleString("en-IN")} days</TableCell>
+                        <TableCell className="whitespace-nowrap font-medium tabular-nums">{formatInr(Number(plan.price), { fractionDigits: 2 })}</TableCell>
+                        <TableCell><Badge variant={plan.is_active ? "positive" : "default"}>{plan.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <PlanFormDialog plan={plan} />
+                            <PlanActiveToggle planId={plan.id} isActive={plan.is_active} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
-  </>;
+  );
 }

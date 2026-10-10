@@ -1,28 +1,27 @@
-import { DashboardHeader, DataPanel } from "@/components/dashboard";
-import { updateGymSettings } from "@/lib/gym/actions";
-import { requireRole } from "@/lib/auth/guards";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { NotificationPreferences } from "@/components/notification-preferences";
-
-export default async function GymSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
-  const [identity, params] = await Promise.all([requireRole("gym_admin"), searchParams]);
-  const supabase = await createSupabaseServerClient();
-  const [{ data: gym }, { data: settings, error }, { data: preferences, error: preferencesError }] = await Promise.all([
-    supabase.from("gyms").select("name, phone, email, address").eq("id", identity.gymId!).maybeSingle(),
-    supabase.from("gym_settings").select("timezone, currency").eq("gym_id", identity.gymId!).maybeSingle(),
-    supabase.from("notification_preferences").select("event_type, channel, enabled").eq("user_id", identity.userId).eq("audience", "gym").eq("gym_id", identity.gymId!),
-  ]);
-  return <><DashboardHeader eyebrow="Gym workspace" title="Gym settings" description="Manage regional defaults for this gym." />
-    {params.saved === "1" && <p className="success-message" role="status">Gym settings saved.</p>}
-    {params.error && <p className="form-error" role="alert">{params.error === "validation" ? "Check the timezone and currency values." : "Settings could not be saved."}</p>}
-    <div className="dashboard-columns">
-      <DataPanel title="Regional settings" description="These settings apply only to your gym workspace.">
-        {error || !settings ? <div className="empty-state"><strong>Settings unavailable</strong><p>The gym settings record could not be loaded.</p></div> : <form action={updateGymSettings} className="record-form"><label>Timezone<input name="timezone" required maxLength={80} defaultValue={settings.timezone} /></label><label>Currency code<input name="currency" required minLength={3} maxLength={3} defaultValue={settings.currency} /></label><button className="button button-primary" type="submit">Save settings</button></form>}
-      </DataPanel>
-      <DataPanel title="Gym profile" description="These details are maintained by the VYRO platform owner.">
-        <dl className="details-grid"><div><dt>Gym</dt><dd>{gym?.name || "—"}</dd></div><div><dt>Phone</dt><dd>{gym?.phone || "Not provided"}</dd></div><div><dt>Email</dt><dd>{gym?.email || "Not provided"}</dd></div><div><dt>Address</dt><dd>{gym?.address || "Not provided"}</dd></div></dl>
-      </DataPanel>
-    </div>
-    <div className="report-section"><NotificationPreferences audience="gym" preferences={preferences || []} saved={params.saved === "notifications" ? "saved" : undefined} error={preferencesError ? "preferences" : params.error} /></div>
-  </>;
+import type { Metadata } from "next";
+import Image from "next/image";
+import { CommandCenterCard } from "@/components/ui/command-center-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { GymSettingsForm } from "@/components/settings/gym-settings-form";
+import { NotificationPreferencesForm } from "@/components/settings/notification-preferences-form";
+import { RegistrationFeeSettingsForm } from "@/components/settings/registration-fee-settings-form";
+import { requireGymAdminContext } from "@/lib/auth/guards";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+export const metadata: Metadata = { title: "Settings" };
+export default async function SettingsPage() {
+ const { user, gymId } = await requireGymAdminContext(); const supabase = await createServerSupabaseClient();
+ const [{ data: gym }, { data: settings }, { data: prefRows }] = await Promise.all([
+  supabase.from("gyms").select("name, owner_name, phone, email, address, logo_path").eq("id", gymId).maybeSingle(),
+  supabase.from("gym_settings").select("currency, timezone, registration_fee_amount, registration_fee_enabled").eq("gym_id", gymId).maybeSingle(),
+  supabase.from("notification_preferences").select("event_type, enabled").eq("user_id", user.id).eq("audience", "gym").eq("gym_id", gymId).eq("channel", "in_app"),
+ ]);
+ if (!gym || !settings) return <p role="alert" className="text-sm text-destructive">Gym settings could not be loaded.</p>;
+ const current = Object.fromEntries((prefRows ?? []).map((r) => [r.event_type, r.enabled]));
+ const { data: logo } = gym.logo_path ? await supabase.storage.from("vyro-gym-logos").createSignedUrl(gym.logo_path, 900) : { data: null };
+ return <div className="mx-auto max-w-4xl space-y-6"><PageHeader eyebrow="Workspace" title="Settings" description="Gym identity, regional defaults, and in-app notification preferences."/>
+  {logo?.signedUrl ? <Image src={logo.signedUrl} alt={`${gym.name} logo`} width={80} height={80} unoptimized className="h-20 w-20 rounded-lg border border-border bg-white object-contain p-2"/> : null}
+  <CommandCenterCard title="Gym profile"><GymSettingsForm gym={gym} settings={{ currency: settings.currency ?? "INR", timezone: settings.timezone ?? "Asia/Kolkata" }}/></CommandCenterCard>
+  <CommandCenterCard title="First-time registration fee"><RegistrationFeeSettingsForm settings={{ amount: settings.registration_fee_amount ?? 0, enabled: settings.registration_fee_enabled ?? false }}/></CommandCenterCard>
+  <CommandCenterCard title="Notifications"><NotificationPreferencesForm current={current}/></CommandCenterCard>
+ </div>;
 }
