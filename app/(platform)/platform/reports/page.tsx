@@ -10,12 +10,9 @@ export const metadata: Metadata = { title: "Platform reports" };
 
 export default async function PlatformReportsPage() {
   const supabase = await createServerSupabaseClient();
-  const since = new Date();
-  since.setDate(1);
-  since.setHours(0,0,0,0);
   const [
     gyms,totalGyms,activeGyms,trialGyms,suspendedGyms,
-    memberships,subscriptions,completedPayments,pendingPayments,pastDue,
+    memberships,subscriptions,paymentTotals,pendingPayments,pastDue,
     recentGymCreated,recentSubscriptions
   ] = await Promise.all([
     supabase.from("gyms").select("id,name,status,created_at").order("created_at",{ascending:false}).limit(10),
@@ -25,15 +22,15 @@ export default async function PlatformReportsPage() {
     supabase.from("gyms").select("id",{count:"exact",head:true}).eq("status","suspended"),
     supabase.from("gym_user_memberships").select("gym_id",{count:"exact",head:true}).eq("role","gym_admin"),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}),
-    supabase.from("platform_subscription_payments").select("amount,currency,payment_date").eq("status","completed").gte("payment_date",since.toISOString()).limit(1000),
+    supabase.rpc("get_platform_payment_aggregates",{p_since:monthStartInIndia()}),
     supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("status","pending"),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).eq("status","past_due"),
     supabase.from("gyms").select("id",{count:"exact",head:true}).gte("created_at",since.toISOString()),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).gte("created_at",since.toISOString()),
   ]);
-  const error=gyms.error||totalGyms.error||activeGyms.error||trialGyms.error||suspendedGyms.error||memberships.error||subscriptions.error||completedPayments.error||pendingPayments.error||pastDue.error||recentGymCreated.error||recentSubscriptions.error;
-  const completedInr=(completedPayments.data??[]).filter(p=>p.currency.trim()==="INR").reduce((sum,p)=>sum+Number(p.amount),0);
-  const completedOtherCurrencies=(completedPayments.data??[]).filter(p=>p.currency.trim()!=="INR").reduce((set,p)=>set.add(p.currency.trim()),new Set<string>());
+  const error=gyms.error||totalGyms.error||activeGyms.error||trialGyms.error||suspendedGyms.error||memberships.error||subscriptions.error||paymentTotals.error||pendingPayments.error||pastDue.error||recentGymCreated.error||recentSubscriptions.error;
+  const completedInr=(paymentTotals.data??[]).filter(p=>p.currency.trim()==="INR").reduce((sum,p)=>sum+Number(p.completed_amount_since),0);
+  const completedOtherCurrencies=(paymentTotals.data??[]).filter(p=>p.currency.trim()!=="INR"&&Number(p.completed_amount_since)>0).reduce((set,p)=>set.add(p.currency.trim()),new Set<string>());
 
   return <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
     <PageHeader eyebrow="Reports" title="Platform Reports" description="Tenant growth, subscription states and VYRO payment-ledger activity. Pending payments are excluded from revenue totals; amounts in other currencies are not converted to INR."/>
@@ -70,6 +67,7 @@ export default async function PlatformReportsPage() {
 }
 
 function Metric({label,value,hint}:{label:string;value:string;hint?:string}){return <article className="rounded-lg border border-border bg-surface px-4 py-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-display text-2xl font-semibold tabular-nums">{value}</p>{hint?<p className="mt-1 text-xs text-muted-foreground">{hint}</p>:null}</article>}
+function monthStartInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return new Date(String(p.year)+"-"+String(p.month)+"-01T00:00:00+05:30").toISOString()}
 function n(value:number|null|undefined){return String(value??0)}
 function formatInr(value:number){return new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(value)}
 function formatDate(value:string){const d=new Date(value);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en-IN",{dateStyle:"medium",timeZone:"Asia/Kolkata"}).format(d)}
