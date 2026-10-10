@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateSubscriptionPricingAction, updateSubscriptionStatusAction } from "@/app/(platform)/platform/revenue/subscriptions-actions";
+import { RenewSubscriptionForm } from "@/components/platform/renew-subscription-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +24,9 @@ function SubscriptionPricingCard({subscription,plans}:{subscription:Subscription
  const selectedPlan=activePlans.find(plan=>plan.id===selectedPlanId);
  const [priceState,priceAction,pricePending]=useActionState(updateSubscriptionPricingAction,initialFormActionState);
  const [statusState,statusAction,statusPending]=useActionState(updateSubscriptionStatusAction,initialFormActionState);
- const transitions:Record<string,string[]>={trial:["active","past_due","expired","suspended","cancelled"],active:["past_due","expired","suspended","cancelled"],past_due:["active","expired","suspended","cancelled"],suspended:["active","expired","cancelled"],expired:["active","cancelled"],cancelled:[]};
+ const transitions:Record<string,string[]>={trial:["active","past_due","expired","suspended","cancelled"],active:["past_due","expired","suspended","cancelled"],past_due:["active","expired","suspended","cancelled"],suspended:["active","expired","cancelled"],expired:["cancelled"],cancelled:[]};
  const canTransition=transitions[subscription.status]??[];
+ const canRenew=subscription.status==="expired"||subscription.status==="cancelled"||(["trial","past_due","suspended"].includes(subscription.status)&&subscription.expires_on<todayInIndia());
  return <article className="rounded-lg border border-border bg-surface p-4 sm:p-5">
   <header className="flex flex-col gap-2 border-b border-border/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
    <div><h3 className="font-display text-base font-semibold">{subscription.gym_name}</h3><p className="mt-1 text-xs text-muted-foreground">{subscription.owner_name??subscription.owner_email??"Owner not recorded"} · {subscription.plan_name}</p></div>
@@ -78,12 +80,14 @@ function SubscriptionPricingCard({subscription,plans}:{subscription:Subscription
    </form>
   </div>
   <p className="mt-3 text-xs text-muted-foreground">Start {formatDate(subscription.starts_on)} · Current expiry {formatDate(subscription.expires_on)} · Changes are written to the platform audit trail.</p>
+  {canRenew ? <div className="mt-4 border-t border-border/70 pt-4"><RenewSubscriptionForm subscription={subscription}/></div> : null}
  </article>;
 }
 
 function Field({id,name,label,type="text",defaultValue,required=false,min,step,error}:{id:string;name:string;label:string;type?:string;defaultValue:string;required?:boolean;min?:string;step?:string;error?:string}){
  return <div className="grid gap-1.5"><Label htmlFor={id}>{label}</Label><Input id={id} name={name} type={type} defaultValue={defaultValue} required={required} min={min} step={step} aria-invalid={Boolean(error)}/>{error?<p className="text-xs text-destructive">{error}</p>:null}</div>;
 }
+function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return String(p.year)+"-"+String(p.month)+"-"+String(p.day);}
 function humanize(value:string){return value.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase());}
 function formatCurrency(amount:number,currency:string){return new Intl.NumberFormat("en-IN",{style:"currency",currency:currency.trim(),maximumFractionDigits:2}).format(amount);}
 function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`;}
