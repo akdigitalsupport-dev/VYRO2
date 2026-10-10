@@ -93,7 +93,7 @@ export async function createGymTrialAction(
     if (!publicEnv.siteUrl) throw new Error("Missing site URL");
     const site = new URL(publicEnv.siteUrl);
     if (site.protocol !== "https:") throw new Error("Invalid site URL");
-    redirectTo = new URL("/auth/redirect", site).toString();
+    redirectTo = new URL("/auth/callback?next=/auth/set-password", site).toString();
   } catch {
     return {
       status: "error",
