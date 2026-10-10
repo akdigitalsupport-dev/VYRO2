@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CommandCenterCard } from "@/components/ui/command-center-card";
 import { CreatePendingPaymentForm } from "@/components/platform/create-pending-payment-form";
-import { PaymentReconciliationForm } from "@/components/platform/payment-reconciliation-form";
+import { CancelPendingPaymentForm, PaymentReconciliationForm } from "@/components/platform/payment-reconciliation-form";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function PlatformPaymentsDashboard() {
@@ -95,7 +95,7 @@ export async function PlatformPaymentsDashboard() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(payment.payment_date)}</td>
                     <td className="max-w-52 break-all px-4 py-3 text-xs text-muted-foreground">{payment.reference || payment.provider_reference || "—"}</td>
                     <td className="px-4 py-3">
-                      {payment.status === "pending" ? <PaymentReconciliationForm paymentId={payment.id} /> : <span className="text-xs text-muted-foreground">{payment.status === "completed" ? "Receipt confirmed" : "No action"}</span>}
+                      {payment.status === "pending" ? <div className="grid justify-items-start gap-2"><PaymentReconciliationForm paymentId={payment.id} /><CancelPendingPaymentForm paymentId={payment.id} /></div> : <span className="text-xs text-muted-foreground">{payment.status === "completed" ? "Receipt confirmed" : "No action"}</span>}
                     </td>
                   </tr>
                 ))}
