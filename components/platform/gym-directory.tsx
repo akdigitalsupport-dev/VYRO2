@@ -41,7 +41,7 @@ export async function GymDirectory({
     const matchesFilter =
       filter === "all" ||
       (filter === "trial" && subscriptionStatus === "trial") ||
-      (filter === "active" && gym.status !== "suspended" && subscriptionStatus === "active") ||
+      (filter === "active" && gym.status === "active" && subscriptionStatus === "active") ||
       (filter === "suspended" && (gym.status === "suspended" || subscriptionStatus === "suspended"));
     if (!matchesFilter) return false;
     const needle = searchQuery.trim().toLocaleLowerCase();
