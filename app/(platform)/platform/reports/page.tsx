@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Building2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { CommandCenterCard } from "@/components/ui/command-center-card";
 import { EmptyState } from "@/components/ui/empty-state";
