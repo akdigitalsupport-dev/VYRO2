@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
