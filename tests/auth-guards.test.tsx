@@ -126,7 +126,7 @@ describe("server-side workspace access guards", () => {
   });
 
   it("uses the authenticated server user id for profile and membership lookups", async () => {
-    const { profileQuery, membershipQuery } = configureAccess({
+    const { profileQuery, membershipQuery, supabase } = configureAccess({
       userId: "authenticated-user",
       role: "gym_admin",
       gymAdminMemberships: [{ gym_id: "gym-1" }],
@@ -137,6 +137,7 @@ describe("server-side workspace access guards", () => {
     expect(profileQuery.eq).toHaveBeenCalledWith("user_id", "authenticated-user");
     expect(membershipQuery.eq).toHaveBeenCalledWith("user_id", "authenticated-user");
     expect(membershipQuery.eq).toHaveBeenCalledWith("role", "gym_admin");
+    expect(supabase.auth.getUser).toHaveBeenCalledTimes(1);
   });
 });
 
