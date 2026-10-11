@@ -285,7 +285,6 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{member.payment_status === "completed" ? <Badge variant="positive">Paid</Badge> : member.payment_status ? <Badge variant={member.payment_status === "pending" ? "warning" : "danger"}>{humanize(member.payment_status)}</Badge> : <span className="text-sm text-muted-foreground">No payment</span>}</TableCell>
                     <TableCell className="text-muted-foreground">{member.phone || "—"}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
@@ -293,6 +292,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                         <Badge variant={membershipBadge(member.membership_status)}>{humanize(member.membership_status)}</Badge>
                       </div>
                     </TableCell>
+                    <TableCell>{member.payment_status === "completed" ? <Badge variant="positive">Paid</Badge> : member.payment_status ? <Badge variant={member.payment_status === "pending" ? "warning" : "danger"}>{humanize(member.payment_status)}</Badge> : <span className="text-sm text-muted-foreground">No payment</span>}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{displayDate(member.joining_date)}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{displayDate(member.end_date)}</TableCell>
                     <TableCell>

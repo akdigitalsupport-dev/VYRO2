@@ -6,7 +6,7 @@ import type { FormActionState } from "@/lib/forms";
 import { calculateMembershipBilling } from "@/lib/members/billing";
 import { formatInr } from "@/lib/money";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { dateInTimeZone, membershipAssignmentSchema, memberPaymentDetailsSchema, memberPaymentSchema, membershipPaymentAmountSchema, parseMembershipPlanPrice } from "@/lib/validation/member-finance";
+import { addDaysToIsoDate, dateInTimeZone, membershipAssignmentSchema, memberPaymentDetailsSchema, memberPaymentSchema, membershipPaymentAmountSchema, parseMembershipPlanPrice } from "@/lib/validation/member-finance";
 
 function value(formData: FormData, key: string) {
   const item = formData.get(key);
@@ -51,7 +51,7 @@ export async function assignMembershipAndRecordPaymentAction(
 
   const { data: plan, error: planError } = await supabase
     .from("membership_plans")
-    .select("id, price")
+    .select("id, price, duration_days")
     .eq("id", parsed.data.membership_plan_id)
     .eq("gym_id", gymId)
     .eq("is_active", true)
@@ -62,6 +62,27 @@ export async function assignMembershipAndRecordPaymentAction(
 
   const planPrice = parseMembershipPlanPrice(plan.price);
   if (planPrice === null) return { status: "error", message: "The selected plan has an invalid saved price. Correct the plan before continuing." };
+
+  // Give the admin a useful field error before invoking the atomic RPC. The
+  // database overlap constraint remains authoritative and protects against races.
+  const { data: history, error: historyError } = await supabase.from("member_memberships")
+    .select("start_date, end_date")
+    .eq("member_id", memberId).eq("gym_id", gymId).in("status", ["active", "expired"]);
+  if (historyError) return { status: "error", message: "Membership history could not be checked. Refresh and try again." };
+  let nextStart = parsed.data.start_date;
+  let overlaps = (history ?? []).filter((period) => period.start_date <= addDaysToIsoDate(nextStart, Number(plan.duration_days)) && period.end_date >= nextStart);
+  while (overlaps.length) {
+    const priorEnd = overlaps.reduce((latest, period) => period.end_date > latest ? period.end_date : latest, overlaps[0].end_date);
+    nextStart = addDaysToIsoDate(priorEnd, 1);
+    overlaps = (history ?? []).filter((period) => period.start_date <= addDaysToIsoDate(nextStart, Number(plan.duration_days)) && period.end_date >= nextStart);
+  }
+  if (nextStart !== parsed.data.start_date) {
+    return {
+      status: "error",
+      message: `This period overlaps existing membership history. The next available start date is ${nextStart}.`,
+      fieldErrors: { start_date: `Choose ${nextStart} or a later date.` },
+    };
+  }
 
   const timeZone = settings?.timezone ?? "Asia/Kolkata";
   const amountResult = membershipPaymentAmountSchema.safeParse(value(formData, "payment_amount"));
