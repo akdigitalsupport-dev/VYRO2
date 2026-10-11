@@ -18,6 +18,6 @@ export default async function PlatformCustomPricingPage() {
   });
   return <div className="mx-auto w-full max-w-[1440px] space-y-6 sm:space-y-7">
     <PageHeader eyebrow="Catalog" title="Custom Pricing" description="Assign an active standard SaaS plan or a negotiated price to each gym. Adjust trial expiry separately from subscription status. No action here records a payment or pretends a charge succeeded."/>
-    {error?<p role="alert" className="rounded-md border border-warning/40 bg-warning/5 p-4 text-sm text-warning">Subscription pricing management requires both the platform plan catalogue and subscription plan-link migrations in the target database. The reviewed migrations are in the implementation branch and staging database, not yet in production.</p>:<SubscriptionPricingManager subscriptions={subscriptions} plans={planResult.data??[]}/>}
+    {error?<p role="alert" className="rounded-md border border-warning/40 bg-warning/5 p-4 text-sm text-warning">Subscription pricing data could not be loaded. Check database access and the platform pricing schema, then refresh.</p>:<SubscriptionPricingManager subscriptions={subscriptions} plans={planResult.data??[]}/>}
   </div>;
 }

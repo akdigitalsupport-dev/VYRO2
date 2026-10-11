@@ -21,7 +21,7 @@ export default async function PlatformSupportPage() {
     <PageHeader eyebrow="Support" title="Support" description="Track gym-owner requests, assign priority, manage status and maintain internal notes. Tickets and notes are restricted to Platform Owners."/>
     {gymsResult.error?<p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">Gym options could not be loaded. You can still create an unassigned platform-wide ticket.</p>:null}
     <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      {tableMissing?<div className="rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm text-warning">Support-ticket storage needs the reviewed migration installed in this database. No ticket data has been fabricated.</div>:<CreateSupportTicketForm gyms={gyms}/>}
+      {tableMissing?<div role="alert" className="rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm text-warning">Support tickets could not be loaded. Check database access and the support-ticket schema, then refresh.</div>:<CreateSupportTicketForm gyms={gyms}/>}
       <CommandCenterCard title="Ticket queue">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Metric label="Open" value={tickets.filter(t=>t.status==="open").length}/>
@@ -34,7 +34,7 @@ export default async function PlatformSupportPage() {
       </CommandCenterCard>
     </div>
     <CommandCenterCard title="Recent tickets">
-      {tableMissing?<EmptyState icon={Inbox} title="Ticket table is not installed here" description="The support-ticket migration has been added to the implementation branch and staging database. It has not been applied to production."/>:tickets.length===0?<EmptyState icon={Inbox} title="No support tickets" description="Create a ticket to track a customer gym issue."/>:
+      {tableMissing?<EmptyState icon={Inbox} title="Ticket queue unavailable" description="The ticket query failed. Check database access and refresh the page."/>:tickets.length===0?<EmptyState icon={Inbox} title="No support tickets" description="Create a ticket to track a customer gym issue."/>:
       <div className="space-y-4">{tickets.map(ticket=>{const gym=Array.isArray(ticket.gyms)?ticket.gyms[0]:ticket.gyms;return <article key={ticket.id} className="grid gap-4 rounded-lg border border-border/80 bg-background/25 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)]">
         <div className="min-w-0 space-y-2"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-xs ${ticket.priority==="urgent"?"border-destructive/30 bg-destructive/10 text-destructive":ticket.priority==="high"?"border-warning/30 bg-warning/10 text-warning":"border-border bg-background text-muted-foreground"}`}>{ticket.priority}</span><span className="rounded-full border border-border px-2 py-1 text-xs">{humanize(ticket.status)}</span></div><h3 className="font-display text-sm font-semibold">{ticket.subject}</h3><p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{ticket.description}</p><p className="text-xs text-muted-foreground">{gym?.name??"Platform-wide"} · {ticket.requester_name??"Requester not recorded"} {ticket.requester_email?`· ${ticket.requester_email}`:""}</p><p className="text-xs text-muted-foreground">Opened {formatDate(ticket.created_at)}{ticket.resolved_at?` · Resolved ${formatDate(ticket.resolved_at)}`:""}</p></div>
         <SupportTicketUpdateForm ticket={ticket}/>

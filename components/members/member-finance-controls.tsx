@@ -128,6 +128,9 @@ function MembershipForm({
     const suggested = defaultMembershipStartDate(mode, today, latestMembership);
     return suggested < joiningDate ? joiningDate : suggested;
   });
+  const earliestStartDate = mode !== "assign" && latestMembership && latestMembership.end_date >= today
+    ? addDaysToIsoDate(latestMembership.end_date, 1)
+    : joiningDate;
   const selectedPlan = plans.find((plan) => plan.id === planId);
   const selectedPrice = parseMembershipPlanPrice(selectedPlan?.price);
   const isFreePlan = selectedPrice === 0;
@@ -177,7 +180,7 @@ function MembershipForm({
             id={`membership-start-${mode}`}
             name="start_date"
             type="date"
-            min={joiningDate}
+            min={earliestStartDate}
             value={startDate}
             onChange={(event) => setStartDate(event.currentTarget.value)}
             required

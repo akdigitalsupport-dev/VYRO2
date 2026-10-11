@@ -22,17 +22,26 @@ const paymentId = "324f3144-cf59-4d51-b90b-24da954e7cdd";
 type MockResult = { data: unknown; error: { code?: string } | null };
 
 function builder(result: MockResult, awaitedResult = result) {
+  let resolvedResult = awaitedResult;
   const value = {
     inserted: undefined as unknown,
     select: vi.fn(() => value),
     eq: vi.fn(() => value),
+    in: vi.fn((column: string, allowedValues: readonly unknown[]) => {
+      const rows = Array.isArray(awaitedResult.data) ? awaitedResult.data : [];
+      resolvedResult = {
+        ...awaitedResult,
+        data: rows.filter((row) => allowedValues.includes((row as Record<string, unknown>)[column])),
+      };
+      return value;
+    }),
     order: vi.fn(() => value),
     insert: vi.fn((row: unknown) => {
       value.inserted = row;
       return value;
     }),
     maybeSingle: vi.fn().mockResolvedValue(result),
-    then: (resolve: (value: MockResult) => unknown, reject?: (reason: unknown) => unknown) => Promise.resolve(awaitedResult).then(resolve, reject),
+    then: (resolve: (value: MockResult) => unknown, reject?: (reason: unknown) => unknown) => Promise.resolve(resolvedResult).then(resolve, reject),
   };
   return value;
 }
@@ -43,6 +52,7 @@ function configureSupabase({
   settingsResult = { data: { timezone: "Asia/Kolkata", currency: "INR" }, error: null },
   membershipResult = { data: { id: membershipId, price_snapshot: 1499 }, error: null },
   paymentRowsResult = { data: [], error: null },
+  membershipHistoryResult = { data: [], error: null },
   rpcResult = { data: [{ membership_id: membershipId, payment_id: paymentId }], error: null },
 }: {
   memberResult?: MockResult;
@@ -50,13 +60,14 @@ function configureSupabase({
   settingsResult?: MockResult;
   membershipResult?: MockResult;
   paymentRowsResult?: MockResult;
+  membershipHistoryResult?: MockResult;
   rpcResult?: MockResult;
 } = {}) {
   const builders = {
     members: builder(memberResult),
     membership_plans: builder(planResult),
     gym_settings: builder(settingsResult),
-    member_memberships: builder(membershipResult),
+    member_memberships: builder(membershipResult, membershipHistoryResult),
     member_payments: builder(paymentRowsResult, paymentRowsResult),
   };
   const supabase = {
@@ -143,7 +154,7 @@ describe("membership and payment server action", () => {
     const result = await assignMembershipAndRecordPaymentAction(memberId, initialFormActionState, membershipAndPaymentForm("2026-10-08", undefined, "1999"));
 
     expect(result.status).toBe("success");
-    expect(builders.membership_plans.select).toHaveBeenCalledWith("id, price");
+    expect(builders.membership_plans.select).toHaveBeenCalledWith("id, price, duration_days");
     expect(builders.membership_plans.eq).toHaveBeenCalledWith("id", planId);
     expect(builders.membership_plans.eq).toHaveBeenCalledWith("gym_id", gymId);
     expect(builders.membership_plans.eq).toHaveBeenCalledWith("is_active", true);
@@ -196,6 +207,29 @@ describe("membership and payment server action", () => {
     const planDenied = await assignMembershipAndRecordPaymentAction(memberId, initialFormActionState, membershipAndPaymentForm("2026-10-08"));
     expect(planDenied.status).toBe("error");
     expect(planScoped.supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("filters membership history to active and expired periods before checking overlap", async () => {
+    const period = { start_date: "2026-10-01", end_date: "2026-10-31" };
+    const cancelled = configureSupabase({
+      planResult: { data: { id: planId, price: 1499, duration_days: 30 }, error: null },
+      membershipHistoryResult: { data: [{ ...period, status: "cancelled" }], error: null },
+    });
+    const cancelledResult = await assignMembershipAndRecordPaymentAction(memberId, initialFormActionState, membershipAndPaymentForm("2026-10-08"));
+
+    expect(cancelledResult.status).toBe("success");
+    expect(cancelled.builders.member_memberships.in).toHaveBeenCalledWith("status", ["active", "expired"]);
+    expect(cancelled.supabase.rpc).toHaveBeenCalledOnce();
+
+    const active = configureSupabase({
+      planResult: { data: { id: planId, price: 1499, duration_days: 30 }, error: null },
+      membershipHistoryResult: { data: [{ ...period, status: "active" }], error: null },
+    });
+    const activeResult = await assignMembershipAndRecordPaymentAction(memberId, initialFormActionState, membershipAndPaymentForm("2026-10-08"));
+
+    expect(activeResult.status).toBe("error");
+    expect(activeResult.message).toContain("overlaps existing membership history");
+    expect(active.supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects archived members before creating a membership or payment", async () => {

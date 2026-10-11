@@ -13,7 +13,7 @@ describe("experience isolation", () => {
   });
 
   it("matches the gym operating navigation and keeps billing inside Members", () => {
-    expect(flattenNav(gymNav).map((item) => item.label)).toEqual(["Dashboard", "Members", "Plans", "Attendance", "Trainers", "Expenses", "Reports", "Backup", "Settings"]);
+    expect(flattenNav(gymNav).map((item) => item.label)).toEqual(["Dashboard", "Leads", "Members", "Plans", "Attendance", "Trainers", "Expenses", "Reports", "Backup", "Settings"]);
     expect(flattenNav(gymNav).some((item) => ["Memberships", "Payments"].includes(item.label))).toBe(false);
   });
 
