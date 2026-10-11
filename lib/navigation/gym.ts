@@ -5,7 +5,6 @@ export const gymNav: NavSection[] = [
     title: "Workspace",
     items: [
       { href: "/gym/command-center", label: "Dashboard", icon: "layout" },
-      { href: "/gym/leads", label: "Leads", icon: "id-card" },
       { href: "/gym/members", label: "Members", icon: "users" },
       { href: "/gym/plans", label: "Plans", icon: "clipboard" },
       { href: "/gym/attendance", label: "Attendance", icon: "calendar" },

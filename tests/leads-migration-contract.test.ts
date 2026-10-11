@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migration = readFileSync(path.join(root, "supabase/migrations/202610110007_gym_leads.sql"), "utf8").toLowerCase();
 const attributionMigration = readFileSync(path.join(root, "supabase/migrations/20261011131514_gym_leads_created_by_integrity.sql"), "utf8").toLowerCase();
-const page = readFileSync(path.join(root, "app/(gym)/gym/leads/page.tsx"), "utf8");
-const actions = readFileSync(path.join(root, "app/(gym)/gym/leads/actions.ts"), "utf8");
+const gymLeadsRoute = path.join(root, "app/(gym)/gym/leads/page.tsx");
+const gymLeadsActions = path.join(root, "app/(gym)/gym/leads/actions.ts");
 
 describe("gym leads feature contract (static checks; not live database tests)", () => {
   it("stores leads with tenant RLS and no authenticated delete grant", () => {
@@ -26,12 +26,11 @@ describe("gym leads feature contract (static checks; not live database tests)", 
     expect(migration).not.toMatch(/grant[^;]*delete[^;]*on public\.gym_leads/);
   });
 
-  it("loads and writes rows only for the authenticated gym", () => {
-    expect(page).toContain("requireGymAdminContext()");
-    expect(page).toContain('.eq("gym_id", gymId)');
-    expect(actions).toContain("requireGymAdminContext()");
-    expect(actions).toContain("gym_id: gymId");
-    expect(actions).toContain('.eq("id", id).eq("gym_id", gymId)');
+  it("keeps the production data model while removing Gym Admin leads UI routes", () => {
+    expect(existsSync(gymLeadsRoute)).toBe(false);
+    expect(existsSync(gymLeadsActions)).toBe(false);
+    expect(existsSync(path.join(root, "components/leads/lead-forms.tsx"))).toBe(false);
+    expect(migration).toContain("create table public.gym_leads");
   });
 
   it("adds database enforcement for creator attribution and prevents creator changes", () => {

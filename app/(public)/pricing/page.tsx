@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Pricing" };
 
 const tiers = [
   { name: "Starter", intent: "Small independent gyms starting with members and payments." },
-  { name: "Growth", intent: "Gyms that need staff roles, leads, and clearer renewals." },
+  { name: "Growth", intent: "Gyms that need staff roles and clearer renewals." },
   { name: "Pro", intent: "Multi-staff operations with reporting and tighter control." },
   { name: "Enterprise", intent: "Negotiated terms, custom SaaS price, and platform support." },
 ];

@@ -53,7 +53,7 @@ export async function updateSubscriptionPricingAction(_previousState:FormActionS
  }
  const {data:updated,error}=await supabase.from("platform_subscriptions").update({plan_id:planId,plan_name:planName,amount,currency:"INR",billing_period:resolvedBillingPeriod,expires_on:p.expires_on}).eq("id",p.subscription_id).select("id").maybeSingle();
  if(error||!updated)return {status:"error",message:"Pricing could not be saved. Check the platform subscription schema and try again."};
- revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
+ revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");
  return {status:"success",message:"Subscription pricing and expiry updated. No payment was recorded.",recordId:updated.id};
 }
 
@@ -97,7 +97,7 @@ export async function updateSubscriptionStatusAction(_previousState:FormActionSt
  const updatePayload={status:next_status,...(renewedDates??{})};
  const {data,error}=await supabase.from("platform_subscriptions").update(updatePayload).eq("id",subscription_id).eq("status",subscription.status).select("id").maybeSingle();
  if(error||!data)return {status:"error",message:"This transition was rejected by the subscription lifecycle rules. Refresh and review the current status."};
- revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
+ revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");
  return {status:"success",message:renewedDates?`Subscription activated with a new paid term through ${renewedDates.expires_on}.`: `Subscription status changed to ${next_status.replaceAll("_"," ")}.`,recordId:data.id};
 }
 function todayInIndia(){const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${x.year}-${x.month}-${x.day}`;}
@@ -183,6 +183,6 @@ export async function renewPlatformSubscriptionAction(
   console.error("Platform renewal creation failed",{code:error?.code});
   return {status:"error",message:"The new subscription term could not be created. No payment was marked received."};
  }
- revalidatePath("/platform");revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/revenue/payments");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");revalidatePath("/platform/trials");
+ revalidatePath("/platform");revalidatePath("/platform/revenue");revalidatePath("/platform/revenue/outstanding");revalidatePath("/platform/revenue/payments");revalidatePath("/platform/plans/pricing");revalidatePath("/platform/gyms");revalidatePath("/platform/gyms/trials");
  return {status:"success",message:`New ${old.billing_period} term created through ${expiresOn} as past due. Record and verify its payment in SaaS Payments before activating it.`,recordId:created.id};
 }

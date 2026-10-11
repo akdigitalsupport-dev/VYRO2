@@ -57,7 +57,7 @@ export default function MarketingPage() {
               <StatCard label="Check-ins" value="—" hint="Live attendance after Phase 6" />
               <StatCard label="Outstanding" value="—" hint="Live dues after Phase 5" />
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">Today&apos;s actions appear here when memberships, dues, and leads exist.</p>
+            <p className="mt-4 text-sm text-muted-foreground">Today&apos;s actions appear here when memberships and dues need attention.</p>
           </aside>
         </section>
 
@@ -73,7 +73,7 @@ export default function MarketingPage() {
             <div>
               <h2 className="font-display text-2xl">What VYRO is</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                A premium gym operating system: members, memberships, money, attendance, staff, leads, expenses, and
+                A premium gym operating system: members, memberships, money, attendance, staff, expenses, and
                 reports — isolated per gym.
               </p>
             </div>
