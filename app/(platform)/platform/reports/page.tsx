@@ -36,7 +36,7 @@ export default async function PlatformReportsPage() {
     supabase.from("platform_subscription_payments").select("id",{count:"exact",head:true}).eq("status","pending"),
     supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).eq("status","past_due"),
     supabase.from("gyms").select("id",{count:"exact",head:true}).gte("created_at",monthStart),
-    supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).gte("created_at",since.toISOString()),
+    supabase.from("platform_subscriptions").select("id",{count:"exact",head:true}).gte("created_at",monthStart),
   ]);
   const error=gyms.error||totalGyms.error||activeGyms.error||trialGyms.error||suspendedGyms.error||memberships.error||subscriptions.error||paymentTotals.error||pendingPayments.error||pastDue.error||recentGymCreated.error||recentSubscriptions.error;
   const paymentTotalsData=(paymentTotals.data??[]) as PaymentAggregate[];
