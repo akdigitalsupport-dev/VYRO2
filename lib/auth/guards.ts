@@ -44,25 +44,24 @@ export const requireGymAdminContext = cache(async () => {
   if (!identity.gymId) redirect("/unauthorized");
 
   const supabase = await createSupabaseServerClient();
-  const { data: gym, error: gymError } = await supabase
-    .from("gyms")
-    .select("status")
-    .eq("id", identity.gymId)
-    .maybeSingle();
+  const [
+    { data: gym, error: gymError },
+    { data: subscriptions, error: subscriptionError },
+  ] = await Promise.all([
+    supabase.from("gyms").select("status").eq("id", identity.gymId).maybeSingle(),
+    supabase.from("platform_subscriptions")
+      .select("status, expires_on")
+      .eq("gym_id", identity.gymId)
+      .order("starts_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1),
+  ]);
   if (gymError || !gym || gym.status === "suspended" || gym.status === "expired") {
     redirect("/unauthorized?reason=workspace");
   }
 
   // Enforce subscription status at the server route boundary as well as in RLS.
   // Workspaces without a platform subscription remain accessible for legacy compatibility.
-  const { data: subscriptions, error: subscriptionError } = await supabase
-    .from("platform_subscriptions")
-    .select("status, expires_on")
-    .eq("gym_id", identity.gymId)
-    .order("starts_on", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1);
-
   if (subscriptionError) redirect("/unauthorized?reason=subscription");
   const subscription = subscriptions?.[0];
   if (subscription) {
