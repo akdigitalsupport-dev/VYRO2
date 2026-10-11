@@ -56,13 +56,19 @@ export default async function CommandCenterPage() {
   ]);
   const today = getLocalDate(settings?.timezone ?? "Asia/Kolkata");
   const startDate = new Date(`${today}T00:00:00Z`); startDate.setUTCDate(startDate.getUTCDate() - 29);
-  const { data: report, error: reportError } = await supabase.rpc("get_gym_report", {
-    target_gym_id: gymId,
-    p_from: startDate.toISOString().slice(0, 10),
-    p_to: today,
-  });
   const monthStart = `${today.slice(0, 7)}-01`;
-  const [{ data: financial, error: financialError }, { data: activity, error: activityError }, { data: monthRevenue, error: monthRevenueError }, { data: todayRevenue, error: todayRevenueError }] = await Promise.all([
+  const [
+    { data: report, error: reportError },
+    { data: financial, error: financialError },
+    { data: activity, error: activityError },
+    { data: monthRevenue, error: monthRevenueError },
+    { data: todayRevenue, error: todayRevenueError },
+  ] = await Promise.all([
+    supabase.rpc("get_gym_report", {
+      target_gym_id: gymId,
+      p_from: startDate.toISOString().slice(0, 10),
+      p_to: today,
+    }),
     supabase.rpc("get_gym_financial_snapshot", { p_as_of: today }),
     supabase.from("audit_logs").select("id, action, entity_type, created_at").eq("gym_id", gymId).order("created_at", { ascending: false }).limit(8),
     supabase.rpc("get_gym_revenue_breakdown", { p_from: monthStart, p_to: today }),
