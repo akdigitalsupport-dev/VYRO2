@@ -30,9 +30,11 @@ export const platformNav: NavSection[] = [
     ],
   },
   {
-    title: "Revenue",
+    title: "Billing",
     items: [
-      { href: "/platform/revenue", label: "SaaS Subscriptions", icon: "credit-card" },
+      { href: "/platform/subscriptions", label: "SaaS Subscriptions", icon: "credit-card" },
+      { href: "/platform/renewals", label: "Upcoming Renewals", icon: "calendar" },
+      { href: "/platform/revenue", label: "Revenue", icon: "banknote" },
       { href: "/platform/revenue/payments", label: "SaaS Payments", icon: "receipt" },
       { href: "/platform/revenue/outstanding", label: "Outstanding", icon: "clipboard" },
     ],
@@ -42,13 +44,11 @@ export const platformNav: NavSection[] = [
     items: [
       { href: "/platform/plans", label: "SaaS Plans", icon: "layout" },
       { href: "/platform/plans/pricing", label: "Custom Pricing", icon: "receipt" },
-      { href: "/platform/trials", label: "Trials", icon: "timer" },
     ],
   },
   {
-    title: "System",
+    title: "Administration",
     items: [
-      { href: "/platform/reports", label: "Reports", icon: "clipboard" },
       { href: "/platform/support", label: "Support", icon: "life-buoy" },
       { href: "/platform/system", label: "System Health", icon: "activity" },
       { href: "/platform/audit", label: "Audit Logs", icon: "shield" },

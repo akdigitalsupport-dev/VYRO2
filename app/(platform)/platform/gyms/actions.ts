@@ -177,7 +177,6 @@ export async function createGymTrialAction(
   revalidatePath("/platform");
   revalidatePath("/platform/gyms");
   revalidatePath("/platform/gyms/trials");
-  revalidatePath("/platform/trials");
   revalidatePath("/platform/gyms/active");
   return {
     status: "success",
@@ -228,7 +227,6 @@ export async function updateGymWorkspaceStatusAction(
   revalidatePath("/platform/gyms/active");
   revalidatePath("/platform/gyms/suspended");
   revalidatePath("/platform/gyms/trials");
-  revalidatePath("/platform/trials");
   revalidatePath("/platform/revenue");
   revalidatePath("/platform/revenue/outstanding");
   return {

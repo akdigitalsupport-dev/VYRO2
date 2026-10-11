@@ -27,6 +27,6 @@ export async function updatePlatformSettingsAction(_previousState:FormActionStat
   const supabase=await createServerSupabaseClient();
   const {data,error}=await supabase.from("platform_settings").update({brand_name:p.brand_name,support_email:p.support_email||null,default_currency:currency,default_timezone:p.default_timezone}).eq("id",1).select("id").maybeSingle();
   if(error||!data)return {status:"error",message:"Settings could not be saved. Refresh and try again."};
-  revalidatePath("/platform/settings");revalidatePath("/platform/reports");revalidatePath("/platform");
+  revalidatePath("/platform/settings");revalidatePath("/platform");
   return {status:"success",message:"Platform settings saved."};
 }
