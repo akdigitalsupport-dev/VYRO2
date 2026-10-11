@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import { ModulePage } from "@/components/shells/module-page";
+import { GymDirectory } from "@/components/platform/gym-directory";
 
 export const metadata: Metadata = { title: "Trial programs" };
 
-export default function Page() {
-  return (
-    <ModulePage kicker="Trials" title="Trials" description="Trial length and conversion to paid SaaS subscription." />
-  );
+export default async function PlatformTrialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = await searchParams;
+  return <GymDirectory filter="trial" searchQuery={q} title="Trial Programs" description="Review gym accounts using trial subscriptions and their configured expiry dates." />;
 }

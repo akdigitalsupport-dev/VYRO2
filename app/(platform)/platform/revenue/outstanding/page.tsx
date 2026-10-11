@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { ModulePage } from "@/components/shells/module-page";
+import { OutstandingDashboard } from "@/components/platform/outstanding-dashboard";
 
 export const metadata: Metadata = { title: "Outstanding SaaS" };
 
-export default function Page() {
-  return (
-    <ModulePage kicker="Revenue" title="Outstanding" description="Unpaid VYRO SaaS invoices. Separate from gym member dues." />
-  );
+export default function OutstandingPage() {
+  return <OutstandingDashboard />;
 }

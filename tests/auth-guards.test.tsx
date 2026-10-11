@@ -25,12 +25,16 @@ type MockAccess = {
   userId?: string | null;
   role?: string | null;
   gymAdminMemberships?: Array<{ gym_id: string }>;
+  gymStatus?: string;
+  subscriptions?: Array<{ status: string; expires_on: string }>;
 };
 
 function configureAccess({
   userId = "user-1",
   role = "gym_admin",
   gymAdminMemberships = [{ gym_id: "gym-1" }],
+  gymStatus = "active",
+  subscriptions = [],
 }: MockAccess = {}) {
   const profileQuery = {
     select: vi.fn(),
@@ -49,6 +53,17 @@ function configureAccess({
   membershipQuery.select.mockReturnValue(membershipQuery);
   membershipQuery.eq.mockReturnValue(membershipQuery);
   membershipQuery.limit.mockResolvedValue({ data: gymAdminMemberships, error: null });
+  const gymQuery = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
+  gymQuery.select.mockReturnValue(gymQuery);
+  gymQuery.eq.mockReturnValue(gymQuery);
+  gymQuery.maybeSingle.mockResolvedValue({ data: gymStatus ? { status: gymStatus } : null, error: null });
+
+  const subscriptionQuery = { select: vi.fn(), eq: vi.fn(), order: vi.fn(), limit: vi.fn() };
+  subscriptionQuery.select.mockReturnValue(subscriptionQuery);
+  subscriptionQuery.eq.mockReturnValue(subscriptionQuery);
+  subscriptionQuery.order.mockReturnValue(subscriptionQuery);
+  subscriptionQuery.limit.mockResolvedValue({ data: subscriptions, error: null });
+
   const notificationQuery = { select: vi.fn(), eq: vi.fn(), is: vi.fn(), order: vi.fn(), limit: vi.fn() };
   notificationQuery.select.mockReturnValue(notificationQuery); notificationQuery.eq.mockReturnValue(notificationQuery); notificationQuery.is.mockReturnValue(notificationQuery); notificationQuery.order.mockReturnValue(notificationQuery); notificationQuery.limit.mockResolvedValue({ data: [], error: null });
 
@@ -59,11 +74,17 @@ function configureAccess({
         error: null,
       }),
     },
-    from: vi.fn((table: string) => table === "user_profiles" ? profileQuery : table === "gym_user_memberships" ? membershipQuery : notificationQuery),
+    from: vi.fn((table: string) =>
+      table === "user_profiles" ? profileQuery :
+      table === "gym_user_memberships" ? membershipQuery :
+      table === "gyms" ? gymQuery :
+      table === "platform_subscriptions" ? subscriptionQuery :
+      notificationQuery
+    ),
   };
 
   mockCreateServerSupabaseClient.mockResolvedValue(supabase);
-  return { supabase, profileQuery, membershipQuery };
+  return { supabase, profileQuery, membershipQuery, gymQuery, subscriptionQuery };
 }
 
 async function expectRedirect(result: Promise<unknown>, destination: string) {
@@ -110,6 +131,27 @@ describe("server-side workspace access guards", () => {
     configureAccess({ role: "gym_admin", gymAdminMemberships: [{ gym_id: "gym-1" }] });
     await expect(GymLayout({ children: "protected" })).resolves.toBeTruthy();
     expect(() => GymIndexPage()).toThrow("NEXT_REDIRECT:/gym/command-center");
+  });
+
+  it("denies access when the gym workspace is suspended", async () => {
+    configureAccess({ role: "gym_admin", gymStatus: "suspended" });
+    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=workspace");
+  });
+
+  it("denies access when the latest subscription is suspended", async () => {
+    configureAccess({
+      role: "gym_admin",
+      subscriptions: [{ status: "suspended", expires_on: "2099-01-01" }],
+    });
+    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=subscription");
+  });
+
+  it("denies access when a trial has passed its expiry date", async () => {
+    configureAccess({
+      role: "gym_admin",
+      subscriptions: [{ status: "trial", expires_on: "2000-01-01" }],
+    });
+    await expectRedirect(GymLayout({ children: "protected" }), "/unauthorized?reason=subscription");
   });
 
   it("F. allows a platform owner into /platform", async () => {

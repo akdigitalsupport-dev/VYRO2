@@ -37,6 +37,7 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
 }
 
 export async function setInitialPassword(formData: FormData) {
+  if (process.env.VERCEL_ENV === "preview") redirect("/login?reason=invite");
   const parsed = z.object({ password: z.string().min(12).max(128), confirm: z.string().min(12).max(128) })
     .refine((data) => data.password === data.confirm).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/auth/set-password?error=validation");
@@ -52,7 +53,7 @@ export async function setInitialPassword(formData: FormData) {
   }
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) redirect("/auth/set-password?error=save");
-  redirect("/gym/dashboard");
+  redirect("/gym/command-center");
 }
 
 export async function signOut() {

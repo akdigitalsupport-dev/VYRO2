@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import { ModulePage } from "@/components/shells/module-page";
+import { GymDirectory } from "@/components/platform/gym-directory";
 
 export const metadata: Metadata = { title: "Active gyms" };
 
-export default function Page() {
-  return (
-    <ModulePage kicker="Gyms" title="Active" description="Tenants with an active VYRO SaaS subscription." />
-  );
+export default async function ActiveGymsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = await searchParams;
+  return <GymDirectory filter="active" searchQuery={q} title="Active Gyms" description="Customer workspaces whose gym status is active. Trial and payment status remain visible in each row." />;
 }

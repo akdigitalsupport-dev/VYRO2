@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { GymSettingsForm } from "@/components/settings/gym-settings-form";
 import { NotificationPreferencesForm } from "@/components/settings/notification-preferences-form";
 import { RegistrationFeeSettingsForm } from "@/components/settings/registration-fee-settings-form";
+import { AccountSecurityPanel } from "@/components/settings/account-security-panel";
 import { requireGymAdminContext } from "@/lib/auth/guards";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Settings" };
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
  return <div className="mx-auto max-w-4xl space-y-6"><PageHeader eyebrow="Workspace" title="Settings" description="Gym identity, regional defaults, and in-app notification preferences."/>
   {logo?.signedUrl ? <Image src={logo.signedUrl} alt={`${gym.name} logo`} width={80} height={80} unoptimized className="h-20 w-20 rounded-lg border border-border bg-white object-contain p-2"/> : null}
   <CommandCenterCard title="Gym profile"><GymSettingsForm gym={gym} settings={{ currency: settings.currency ?? "INR", timezone: settings.timezone ?? "Asia/Kolkata" }}/></CommandCenterCard>
+  <CommandCenterCard title="Account security"><AccountSecurityPanel currentEmail={user.email}/></CommandCenterCard>
   <CommandCenterCard title="First-time registration fee"><RegistrationFeeSettingsForm settings={{ amount: settings.registration_fee_amount ?? 0, enabled: settings.registration_fee_enabled ?? false }}/></CommandCenterCard>
   <CommandCenterCard title="Notifications"><NotificationPreferencesForm current={current}/></CommandCenterCard>
  </div>;

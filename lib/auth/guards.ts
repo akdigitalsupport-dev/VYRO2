@@ -43,9 +43,45 @@ export const requireGymAdminContext = cache(async () => {
   const identity = await requireRole("gym_admin");
   if (!identity.gymId) redirect("/unauthorized");
 
-  // requireRole already verified this session with Supabase Auth. Reuse its
-  // trusted, server-derived identity instead of calling /auth/v1/user again.
-  // Request-scoped caching also deduplicates nested layout/page guard calls.
+  const supabase = await createSupabaseServerClient();
+  const { data: gym, error: gymError } = await supabase
+    .from("gyms")
+    .select("status")
+    .eq("id", identity.gymId)
+    .maybeSingle();
+  if (gymError || !gym || gym.status === "suspended" || gym.status === "expired") {
+    redirect("/unauthorized?reason=workspace");
+  }
+
+  // Enforce subscription status at the server route boundary as well as in RLS.
+  // Workspaces without a platform subscription remain accessible for legacy compatibility.
+  const { data: subscriptions, error: subscriptionError } = await supabase
+    .from("platform_subscriptions")
+    .select("status, expires_on")
+    .eq("gym_id", identity.gymId)
+    .order("starts_on", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (subscriptionError) redirect("/unauthorized?reason=subscription");
+  const subscription = subscriptions?.[0];
+  if (subscription) {
+    const localDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    if (
+      ["suspended", "expired", "cancelled"].includes(subscription.status) ||
+      subscription.expires_on < localDate
+    ) {
+      redirect("/unauthorized?reason=subscription");
+    }
+  }
+
+  // requireRole already verified the identity. Request-scoped caching prevents
+  // nested page/layout guards from repeating Auth and tenant status reads.
   return {
     user: { id: identity.userId, email: identity.email },
     gymId: identity.gymId,

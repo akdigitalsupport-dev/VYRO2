@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { ModulePage } from "@/components/shells/module-page";
+import { GymDirectory } from "@/components/platform/gym-directory";
 
 export const metadata: Metadata = { title: "All gyms" };
 
-export default function PlatformGymsPage() {
-  return (
-    <ModulePage
-      kicker="Gyms"
-      title="All Gyms"
-      description="Every tenant organization VYRO sells to. Isolation is per organization_id."
-      primaryAction={{ label: "Add Gym", href: "/platform/gyms/new" }}
-    />
-  );
+export default async function PlatformGymsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = await searchParams;
+  return <GymDirectory filter="all" searchQuery={q} description="Every customer gym workspace, its owner, and its VYRO subscription. Tenant data remains isolated per gym." />;
 }
