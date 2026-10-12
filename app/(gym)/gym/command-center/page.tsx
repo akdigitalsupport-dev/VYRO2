@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { QuickActionLink } from "@/components/ui/quick-action-link";
 import { StatCard } from "@/components/ui/stat-card";
+import { InteractiveTrendChart, type TrendPoint } from "@/components/dashboard/interactive-trend-chart";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Command Center" };
@@ -19,11 +20,12 @@ type GymReport = {
   attendance?: { by_day?: Array<{ date: string; check_ins: number }> };
   payments?: { revenue_by_day?: Array<{ date: string; amount: number }> };
 };
+type RevenueDay = { date: string; amount: number; membership_amount?: number; registration_amount?: number };
 type RevenueBreakdown = {
   membership_revenue?: number;
   registration_revenue?: number;
   total_revenue?: number;
-  by_day?: Array<{ date: string; amount: number }>;
+  by_day?: RevenueDay[];
 };
 
 function getLocalDate(timeZone: string) {
@@ -59,12 +61,14 @@ function LinkedStatCard({
   label,
   value,
   hint,
+  tone = "default",
 }: {
   href: string;
   icon: LucideIcon;
   label: string;
   value: string;
   hint?: string;
+  tone?: "default" | "positive";
 }) {
   return (
     <Link
@@ -77,6 +81,7 @@ function LinkedStatCard({
         label={label}
         value={value}
         hint={hint}
+        tone={tone}
         className="h-full transition-[transform,border-color,box-shadow] duration-150 group-hover:-translate-y-0.5 group-hover:border-accent/50 group-hover:shadow-lg"
       />
     </Link>
@@ -94,14 +99,15 @@ export default async function CommandCenterPage() {
   const today = getLocalDate(settings?.timezone ?? "Asia/Kolkata");
   const startDate = new Date(today + "T00:00:00Z");
   startDate.setUTCDate(startDate.getUTCDate() - 29);
+  const startIso = startDate.toISOString().slice(0, 10);
   const monthStart = today.slice(0, 7) + "-01";
+  const revenueStartDate = monthStart < startIso ? monthStart : startIso;
 
   const [
     { data: report, error: reportError },
     { data: financial, error: financialError },
     { data: activity, error: activityError },
-    { data: monthRevenue, error: monthRevenueError },
-    { data: todayRevenue, error: todayRevenueError },
+    { data: trendRevenue, error: trendRevenueError },
   ] = await Promise.all([
     supabase.rpc("get_gym_report", {
       target_gym_id: gymId,
@@ -110,22 +116,31 @@ export default async function CommandCenterPage() {
     }),
     supabase.rpc("get_gym_financial_snapshot", { p_as_of: today }),
     supabase.from("audit_logs").select("id, action, entity_type, created_at").eq("gym_id", gymId).order("created_at", { ascending: false }).limit(8),
-    supabase.rpc("get_gym_revenue_breakdown", { p_from: monthStart, p_to: today }),
-    supabase.rpc("get_gym_revenue_breakdown", { p_from: today, p_to: today }),
+    supabase.rpc("get_gym_revenue_breakdown", { p_from: revenueStartDate, p_to: today }),
   ]);
 
   const summary = summaryResult.data?.[0];
   const membershipStats = report as GymReport | null;
-  const monthRevenueData = monthRevenue as RevenueBreakdown | null;
-  const todayRevenueData = todayRevenue as RevenueBreakdown | null;
-  const queryError = Boolean(settingsError || summaryResult.error || reportError || financialError || monthRevenueError || todayRevenueError);
+  const trendRevenueData = trendRevenue as RevenueBreakdown | null;
+  const revenueDays = trendRevenueData?.by_day ?? [];
+  const monthRevenueDays = revenueDays.filter((point) => point.date >= monthStart);
+  const monthRevenueTotal = monthRevenueDays.reduce((sum, point) => sum + Number(point.amount ?? 0), 0);
+  const monthMembershipRevenue = monthRevenueDays.reduce((sum, point) => sum + Number(point.membership_amount ?? 0), 0);
+  const monthRegistrationRevenue = monthRevenueDays.reduce((sum, point) => sum + Number(point.registration_amount ?? 0), 0);
+  const todayRevenueTotal = revenueDays.find((point) => point.date === today)?.amount ?? 0;
+  const queryError = Boolean(settingsError || summaryResult.error || reportError || financialError || activityError || trendRevenueError);
   const currency = settings?.currency?.trim() || "INR";
   const expiringCount = Number(membershipStats?.memberships?.expiring ?? 0);
   const expiredCount = Number(summary?.expired_members ?? membershipStats?.memberships?.expired ?? 0);
-  const incomePoints = (monthRevenueData?.by_day ?? []).slice(-14);
-  const attendancePoints = (membershipStats?.attendance?.by_day ?? []).slice(-14);
-  const maxIncome = Math.max(1, ...incomePoints.map((point) => Number(point.amount)));
-  const maxAttendance = Math.max(1, ...attendancePoints.map((point) => Number(point.check_ins)));
+  const chartDates = Array.from({ length: 30 }, (_, offset) => {
+    const date = new Date(startDate);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return date.toISOString().slice(0, 10);
+  });
+  const incomeByDate = new Map(revenueDays.map((point) => [point.date, Number(point.amount ?? 0)]));
+  const incomeChartData: TrendPoint[] = chartDates.map((date) => ({ date, value: incomeByDate.get(date) ?? 0 }));
+  const attendanceByDate = new Map((membershipStats?.attendance?.by_day ?? []).map((point) => [point.date, Number(point.check_ins ?? 0)]));
+  const attendanceChartData: TrendPoint[] = chartDates.map((date) => ({ date, value: attendanceByDate.get(date) ?? 0 }));
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-5 sm:space-y-7">
@@ -171,54 +186,21 @@ export default async function CommandCenterPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <LinkedStatCard icon={UserRoundPlus} label="Total members" value={queryError ? "—" : String(summary?.total_members ?? 0)} hint="All member records in this gym" href="/gym/members" />
-          <LinkedStatCard icon={IdCard} label="Active members" value={queryError ? "—" : String(summary?.active_members ?? 0)} hint="Current active memberships" href="/gym/members?member_status=active&membership_status=active" />
-          <LinkedStatCard icon={CreditCard} label="Today's payments" value={queryError ? "—" : formatMoney(todayRevenueData?.total_revenue, currency)} hint="Membership and registration receipts today" href="/gym/members/billing" />
-          <LinkedStatCard icon={CreditCard} label="Collected this month" value={queryError ? "—" : formatMoney(monthRevenueData?.total_revenue, currency)} hint="Membership and registration receipts" href="/gym/reports" />
+          <LinkedStatCard icon={IdCard} tone="positive" label="Active members" value={queryError ? "—" : String(summary?.active_members ?? 0)} hint="Current active memberships" href="/gym/members?member_status=active&membership_status=active" />
+          <LinkedStatCard icon={CreditCard} label="Today's payments" value={queryError ? "—" : formatMoney(todayRevenueTotal, currency)} hint="Membership and registration receipts today" href="/gym/members/billing" />
+          <LinkedStatCard icon={CreditCard} label="Collected this month" value={queryError ? "—" : formatMoney(monthRevenueTotal, currency)} hint={`Membership ${formatMoney(monthMembershipRevenue, currency)} · registration ${formatMoney(monthRegistrationRevenue, currency)}`} href="/gym/reports" />
           <LinkedStatCard icon={CreditCard} label="Expected revenue" value={queryError ? "—" : formatMoney(financial?.expected_revenue, currency)} hint="Current membership totals" href="/gym/reports" />
           <LinkedStatCard icon={Wallet} label="Expenses this month" value={queryError ? "—" : formatMoney(financial?.month_expenses, currency)} hint="Recorded operating costs" href="/gym/expenses" />
-          <LinkedStatCard icon={Wallet} label="Net income" value={queryError ? "—" : formatMoney(Number(monthRevenueData?.total_revenue ?? 0) - Number(financial?.month_expenses ?? 0), currency)} hint="Collected revenue minus recorded expenses" href="/gym/reports" />
+          <LinkedStatCard icon={Wallet} label="Net income" value={queryError ? "—" : formatMoney(monthRevenueTotal - Number(financial?.month_expenses ?? 0), currency)} hint="Collected revenue minus recorded expenses" href="/gym/reports" />
         </div>
       </section>
 
-      <CommandCenterCard title="Income and attendance trends">
+      <CommandCenterCard title="Performance trends">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Income covers this month; attendance covers the last 30 days.</p>
+          <p className="text-xs text-muted-foreground">Explore daily income and attendance over the last month.</p>
           <Link href="/gym/reports" className="text-xs font-semibold text-accent hover:underline">View reports</Link>
         </div>
-        <div className="grid min-w-0 gap-6 md:grid-cols-2">
-          <section aria-label="Income graph" className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-medium">Daily income</h3>
-              <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--income-up)" }} aria-hidden="true" />Green marks an increase from the previous day.</p>
-            </div>
-            {incomePoints.length ? (
-              <div className="flex h-36 items-end gap-1 overflow-x-auto border-b border-border/70 pb-1" role="img" aria-label="Daily total income chart; green bars indicate an increase over the previous day">
-                {incomePoints.map((point, index) => {
-                  const amount = Number(point.amount);
-                  const previous = index > 0 ? Number(incomePoints[index - 1].amount) : amount;
-                  const isRising = index > 0 && amount > previous;
-                  const height = Math.max(3, Math.min(100, amount / maxIncome * 100));
-                  return (
-                    <div key={point.date} className="group flex h-full min-w-3 flex-1 flex-col justify-end" title={point.date + ": " + formatMoney(amount, currency)}>
-                      <div className="rounded-t transition-[height,background-color] duration-150" style={{ height: height + "%", backgroundColor: isRising ? "var(--income-up)" : "var(--accent)" }} />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No income data has been recorded this month.</p>}
-          </section>
-          <section aria-label="Attendance graph" className="min-w-0">
-            <h3 className="mb-2 text-sm font-medium">Attendance check-ins</h3>
-            {attendancePoints.length ? (
-              <div className="flex h-36 items-end gap-1 overflow-x-auto border-b border-border/70 pb-1" role="img" aria-label="Attendance check-ins over the last 14 available days">
-                {attendancePoints.map((point) => {
-                  const height = Math.max(3, Math.min(100, Number(point.check_ins) / maxAttendance * 100));
-                  return <div key={point.date} className="group flex h-full min-w-3 flex-1 flex-col justify-end" title={point.date + ": " + point.check_ins + " check-ins"}><div className="rounded-t bg-accent/70 transition-[height] duration-150" style={{ height: height + "%" }} /></div>;
-                })}
-              </div>
-            ) : <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No attendance data has been recorded in this period.</p>}
-          </section>
-        </div>
+        <InteractiveTrendChart income={incomeChartData} attendance={attendanceChartData} currency={currency} />
       </CommandCenterCard>
 
       <CommandCenterCard title="Recent activity">

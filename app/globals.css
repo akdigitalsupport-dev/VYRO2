@@ -13,8 +13,9 @@
   --accent: #dd7d47;
   --accent-foreground: #170d08;
   --accent-subtle: rgba(221, 125, 71, 0.12);
-  --positive: #a6afa8;
-  --income-up: #63bd91;
+  --positive: #63bd91;
+  --chart-coral: #ff4f61;
+  --chart-hot: #ff815f;
   --warning: #e4b25b;
   --danger: #e17769;
   --card: #121816;
@@ -44,7 +45,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-subtle: var(--accent-subtle);
   --color-positive: var(--positive);
-  --color-income-up: var(--income-up);
+  --color-chart-coral: var(--chart-coral);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-card: var(--card);
@@ -679,4 +680,256 @@ select {
     white-space: normal;
     text-align: right;
   }
+}
+
+
+/* Lightweight SVG trend chart styling. Animation runs once; no continuous chart loop. */
+.interactive-trend-chart {
+  min-width: 0;
+  animation: trend-chart-enter 440ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.trend-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.trend-chart-series,
+.trend-chart-range {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.22rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--background) 65%, var(--surface));
+}
+
+.trend-chart-control {
+  min-height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.75rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.trend-chart-control[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--foreground);
+}
+
+.trend-chart-control:focus-visible,
+.trend-chart-svg:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.trend-chart-range-control {
+  min-width: 2.65rem;
+  padding-inline: 0.55rem;
+}
+
+.trend-chart-readout {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.trend-chart-eyebrow {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.trend-chart-value {
+  margin: 0.32rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  font-family: var(--font-sora), sans-serif;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-chart-date {
+  margin: 0.35rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.trend-chart-readout-meta {
+  display: flex;
+  max-width: 50%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.trend-chart-legend-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.trend-dot-income {
+  background: linear-gradient(135deg, var(--chart-hot), var(--chart-coral));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--chart-coral) 30%, transparent);
+}
+
+.trend-dot-attendance {
+  background: linear-gradient(135deg, var(--accent), var(--chart-hot));
+}
+
+.trend-chart-delta {
+  width: 100%;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-chart-delta > span {
+  color: var(--muted-foreground);
+}
+
+.trend-chart-plot-wrap {
+  position: relative;
+  min-width: 0;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(ellipse 65% 55% at 48% 100%, color-mix(in srgb, var(--chart-coral) 10%, transparent), transparent 76%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 95%, #fff 5%), var(--background));
+}
+
+.trend-chart-svg {
+  display: block;
+  width: 100%;
+  height: clamp(15rem, 39vw, 21rem);
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.trend-chart-grid-line {
+  stroke: var(--border);
+  stroke-opacity: 0.62;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-chart-axis-label {
+  fill: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-chart-line-glow,
+.trend-chart-line-soft {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-chart-line-glow {
+  stroke: var(--chart-coral);
+  stroke-opacity: 0.15;
+  stroke-width: 15;
+}
+
+.trend-chart-line-soft {
+  stroke: var(--chart-hot);
+  stroke-opacity: 0.42;
+  stroke-width: 7;
+}
+
+.trend-chart-crosshair {
+  stroke: var(--chart-hot);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 6;
+  stroke-opacity: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-chart-active-halo {
+  fill: var(--chart-coral);
+  fill-opacity: 0.22;
+}
+
+.trend-chart-active-point {
+  fill: #fff2ea;
+  stroke: var(--chart-coral);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-chart-empty {
+  display: grid;
+  min-height: 10rem;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed var(--border);
+  border-radius: 0.65rem;
+  padding: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.trend-chart-zero-note {
+  min-height: auto;
+  margin: 0.5rem 0 0;
+  border-style: solid;
+  font-size: 0.72rem;
+}
+
+.trend-chart-footnote {
+  margin: 0.6rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}
+
+@keyframes trend-chart-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .trend-chart-toolbar { align-items: stretch; }
+  .trend-chart-series, .trend-chart-range { justify-content: center; }
+  .trend-chart-readout { align-items: flex-start; flex-direction: column; gap: 0.65rem; }
+  .trend-chart-readout-meta { max-width: 100%; justify-content: flex-start; text-align: left; }
+  .trend-chart-delta { width: auto; }
+  .trend-chart-svg { height: 16rem; }
+  .trend-chart-control { min-height: 2.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-trend-chart { animation: none; }
+  .trend-chart-control { transition: none; }
 }
