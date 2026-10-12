@@ -202,7 +202,7 @@ export function InteractiveTrendChart({
             }}
             aria-describedby="trend-chart-keyboard-help"
           >
-            <title>{title}</title>
+            <title>{title} trend graph</title>
             <desc id="trend-chart-keyboard-help">Hover, tap, or focus this chart and use the arrow keys to explore daily values.</desc>
             <defs>
               <linearGradient id={`${gradientId}Line`} x1="0" y1="0" x2="1" y2="0">
