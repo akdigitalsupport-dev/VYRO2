@@ -52,7 +52,7 @@ export default async function MembersBillingPage({ searchParams }: { searchParam
   const { gymId } = await requireGymAdminContext();
   const params = await searchParams;
   const requestedStatus = first(params.status);
-  const statusFilter = ["unpaid", "partially_paid", "paid"].includes(requestedStatus) ? requestedStatus as BillingStatus : "all";
+  const statusFilter: BillingStatus | "outstanding" | "all" = ["unpaid", "partially_paid", "paid", "outstanding"].includes(requestedStatus) ? requestedStatus as BillingStatus | "outstanding" : "all";
   const query = first(params.q).trim().slice(0, 80);
   const supabase = await createServerSupabaseClient();
   const [{ data: membershipRows, error }, { data: settings }, { data: registrationRows, error: registrationError }, { data: registrationMembers, error: registrationMemberError }] = await Promise.all([
@@ -95,7 +95,7 @@ export default async function MembersBillingPage({ searchParams }: { searchParam
   const timeZone = settings?.timezone ?? "Asia/Kolkata";
   const today = dateInTimeZone(new Date(), timeZone);
   const visibleRows = rows.filter((row) => {
-    if (statusFilter !== "all" && row.billing.status !== statusFilter) return false;
+    if (statusFilter === "outstanding" ? row.billing.outstanding <= 0 : statusFilter !== "all" && row.billing.status !== statusFilter) return false;
     if (!query) return true;
     const term = query.toLocaleLowerCase();
     return row.member.full_name.toLocaleLowerCase().includes(term) || row.member.member_code.toLocaleLowerCase().includes(term);
@@ -131,7 +131,7 @@ export default async function MembersBillingPage({ searchParams }: { searchParam
       <CommandCenterCard title="Membership balances">
         <form method="get" action="/gym/members/billing" className="mb-4 flex flex-wrap items-end gap-3">
           <label className="grid gap-1.5 text-xs text-muted-foreground">Search member or code<input name="q" defaultValue={query} placeholder="Name or member code" className="h-10 w-56 rounded-md border border-input bg-[#101512] px-3 text-sm text-foreground" /></label>
-          <label className="grid gap-1.5 text-xs text-muted-foreground">Billing status<select name="status" defaultValue={statusFilter} className="h-10 rounded-md border border-input bg-[#101512] px-3 text-sm text-foreground"><option value="all">All</option><option value="unpaid">Unpaid</option><option value="partially_paid">Partially paid</option><option value="paid">Paid</option></select></label>
+          <label className="grid gap-1.5 text-xs text-muted-foreground">Billing status<select name="status" defaultValue={statusFilter} className="h-10 rounded-md border border-input bg-[#101512] px-3 text-sm text-foreground"><option value="all">All</option><option value="outstanding">Outstanding</option><option value="unpaid">Unpaid</option><option value="partially_paid">Partially paid</option><option value="paid">Paid</option></select></label>
           <Button type="submit" variant="secondary">Apply filters</Button>
           {query || statusFilter !== "all" ? <Button asChild variant="ghost"><Link href="/gym/members/billing">Clear</Link></Button> : null}
         </form>

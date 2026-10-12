@@ -1,9 +1,29 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUpRight, Bell } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { loadNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/notifications/actions";
 import type { InAppNotification } from "@/lib/notifications/server";
 import { PushNotificationToggle } from "@/components/shells/push-notification-toggle";
+
+export function notificationHref(audience: "gym" | "platform", notificationType: string) {
+  if (audience === "gym") {
+    if (notificationType === "membership_expiring" || notificationType === "membership_expiry_reminder") {
+      return "/gym/members?membership_status=expiring";
+    }
+    if (notificationType === "membership_expired") return "/gym/members?membership_status=expired";
+    if (notificationType === "payment_recorded" || notificationType === "payment_refunded") return "/gym/members/billing";
+    return "/gym/command-center";
+  }
+  if (notificationType === "gym_subscription_expiring" || notificationType === "gym_subscription_expired") {
+    return "/platform/subscriptions";
+  }
+  if (notificationType === "platform_payment_recorded" || notificationType === "platform_payment_refunded") {
+    return "/platform/revenue/payments";
+  }
+  return "/platform";
+}
 
 export function NotificationCenter({
   audience,
@@ -77,7 +97,7 @@ export function NotificationCenter({
   return (
     <details ref={centerRef} className="notification-center" onToggle={handleToggle}>
       <summary aria-label={`${unreadCount} unread notifications`} title="Notifications">
-        <span aria-hidden="true">♢</span>
+        <Bell className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="notification-label">Notifications</span>
         {unreadCount > 0 && <span className="notification-count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </summary>
@@ -101,13 +121,20 @@ export function NotificationCenter({
           <ul>
             {notifications.map((notification) => (
               <li key={notification.id} className={notification.is_read ? "is-read" : "is-unread"}>
-                <div>
-                  <strong>{notification.title}</strong>
-                  <p>{notification.message}</p>
-                  <time dateTime={notification.created_at}>
-                    {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(notification.created_at))}
-                  </time>
-                </div>
+                <Link
+                  href={notificationHref(audience, notification.notification_type)}
+                  className="notification-item-link"
+                  onClick={() => { if (centerRef.current) centerRef.current.open = false; }}
+                >
+                  <div>
+                    <strong>{notification.title}</strong>
+                    <p>{notification.message}</p>
+                    <time dateTime={notification.created_at}>
+                      {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(notification.created_at))}
+                    </time>
+                    <span className="notification-item-open">Open related section <ArrowUpRight className="h-3 w-3" aria-hidden="true" /></span>
+                  </div>
+                </Link>
                 {!notification.is_read && (
                   <form action={markNotificationRead} onSubmit={() => {
                     setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, is_read: true } : item));
