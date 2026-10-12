@@ -29,7 +29,7 @@ export async function saveGymSettingsAction(_state: FormActionState, form: FormD
   console.error("Gym profile update failed", { code: error.code }); return { status: "error", message: "Gym settings could not be saved. Review the values and retry." };
  }
  if (gym.logo_path && gym.logo_path !== newPath) { const { error: cleanupError } = await supabase.storage.from("vyro-gym-logos").remove([gym.logo_path]); if (cleanupError) console.error("Old gym logo cleanup failed", { code: cleanupError.name }); }
- revalidatePath("/gym/settings"); revalidatePath("/gym/command-center"); return { status: "success", message: "Gym settings saved." };
+ revalidatePath("/gym", "layout"); revalidatePath("/gym/settings"); revalidatePath("/gym/command-center"); return { status: "success", message: "Gym settings saved." };
 }
 export async function saveNotificationPreferencesAction(_state: FormActionState, form: FormData): Promise<FormActionState> {
  await requireGymAdminContext(); const supabase = await createServerSupabaseClient();

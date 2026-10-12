@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -40,6 +41,28 @@ const navIcons: Record<NavIconName, LucideIcon> = {
   wallet: Wallet,
   download: Download,
 };
+
+type WorkspaceBrandConfig = { name: string; logoUrl?: string | null };
+
+function WorkspaceBrand({ brand }: { brand?: WorkspaceBrandConfig }) {
+  if (!brand) return <VyroWordmark />;
+  const name = brand.name.trim() || "Gym workspace";
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {brand.logoUrl ? (
+        <Image src={brand.logoUrl} alt="" width={40} height={40} unoptimized className="h-10 w-10 shrink-0 rounded-md border border-border/70 bg-surface object-contain p-1" />
+      ) : (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border/70 bg-elevated font-display text-sm font-semibold text-accent" aria-hidden="true">
+          {name.slice(0, 1).toUpperCase() || "G"}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className="block max-w-[9rem] truncate font-display text-sm font-semibold text-foreground sm:max-w-[13rem]">{name}</span>
+        <span className="block text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Gym workspace</span>
+      </span>
+    </span>
+  );
+}
 
 function NavList({
   sections,
@@ -93,6 +116,7 @@ export function WorkspaceShell({
   notifications = [],
   pushEnabled = false,
   pushPublicKey = "",
+  workspaceBrand,
   children,
 }: {
   eyebrow: string;
@@ -102,22 +126,22 @@ export function WorkspaceShell({
   notifications?: InAppNotification[];
   pushEnabled?: boolean;
   pushPublicKey?: string;
+  workspaceBrand?: WorkspaceBrandConfig;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const mobileCurrent = flattenNav(nav).find((item) => item.href === pathname)?.label ?? title;
   const accountHref = flattenNav(nav).find((item) => item.href.endsWith("/settings"))?.href ?? "/";
 
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/80 bg-surface/95 px-4 py-5 shadow-[12px_0_40px_rgba(0,0,0,0.12)] lg:flex lg:flex-col">
-        <Link href="/" className="mb-7 px-2">
-          <VyroWordmark />
+        <Link href={workspaceBrand ? "/gym/command-center" : "/"} aria-label={workspaceBrand ? workspaceBrand.name + " dashboard" : "VYRO home"} className="mb-7 flex min-w-0 px-2">
+          <WorkspaceBrand brand={workspaceBrand} />
         </Link>
         <div className="mb-6 rounded-md border border-border/70 bg-background/45 px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Workspace</p>
-          <p className="mt-1 text-sm font-medium text-foreground">{eyebrow}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">{workspaceBrand ? "Your gym" : "Workspace"}</p>
+          <p className="mt-1 truncate text-sm font-medium text-foreground">{workspaceBrand?.name ?? eyebrow}</p>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain pb-4 pr-1">
           <NavList sections={nav} pathname={pathname} />
@@ -126,17 +150,18 @@ export function WorkspaceShell({
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-40 flex min-h-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/80 bg-background/90 px-3 py-2.5 backdrop-blur-xl sm:px-5 lg:px-8">
-          <div className="flex shrink-0 items-center gap-2.5 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
             <Button type="button" variant="ghost" size="icon" aria-label="Open navigation" onClick={() => setOpen(true)}>
               <Menu className="h-4 w-4" />
             </Button>
-            <VyroWordmark />
+            <Link href={workspaceBrand ? "/gym/command-center" : "/"} aria-label={workspaceBrand ? workspaceBrand.name + " dashboard" : "VYRO home"} className="min-w-0">
+              <WorkspaceBrand brand={workspaceBrand} />
+            </Link>
           </div>
           <div className="hidden min-w-0 lg:block">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">{eyebrow}</p>
             <p className="mt-0.5 truncate font-display text-base font-semibold">{title}</p>
           </div>
-          <p className="min-w-0 flex-1 truncate text-right font-display text-sm font-semibold lg:hidden">{mobileCurrent}</p>
           <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
             <NotificationCenter
               audience={nav.some((section) => section.items.some((item) => item.href === "/gym/command-center")) ? "gym" : "platform"}
@@ -160,16 +185,18 @@ export function WorkspaceShell({
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent side="left">
           <DrawerTitle className="sr-only">Navigation</DrawerTitle>
-          <div className="mb-6 flex items-center justify-between">
-            <VyroWordmark />
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <Link href={workspaceBrand ? "/gym/command-center" : "/"} aria-label={workspaceBrand ? workspaceBrand.name + " dashboard" : "VYRO home"} className="min-w-0">
+              <WorkspaceBrand brand={workspaceBrand} />
+            </Link>
             <DrawerClose asChild>
               <Button type="button" variant="ghost" size="icon" aria-label="Close navigation">
                 <X className="h-4 w-4" />
               </Button>
             </DrawerClose>
           </div>
-          <p className="mb-5 rounded-md border border-border/70 bg-background/45 px-3 py-2 text-xs font-medium text-muted-foreground">{eyebrow}</p>
-          <NavList sections={nav} pathname={pathname} onNavigate={() => setOpen(false)} />
+          <p className="mb-5 rounded-md border border-border/70 bg-background/45 px-3 py-2 text-xs font-medium text-muted-foreground">{workspaceBrand?.name ?? eyebrow}</p>
+          <div className="max-h-[calc(100dvh-10rem)] overflow-y-auto overscroll-contain pr-1"><NavList sections={nav} pathname={pathname} onNavigate={() => setOpen(false)} /></div>
         </DrawerContent>
       </Drawer>
     </div>

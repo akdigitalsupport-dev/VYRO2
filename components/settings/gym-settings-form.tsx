@@ -10,6 +10,7 @@ const initial: FormActionState = { status: "idle", message: "" };
 export function GymSettingsForm({ gym, settings }: { gym: { name: string; owner_name: string | null; phone: string | null; email: string | null; address: string | null }; settings: { currency: string; timezone: string } }) {
  const [state, action, pending] = useActionState(saveGymSettingsAction, initial);
  return <form action={action} className="grid gap-4 sm:grid-cols-2">
+  <p className="sm:col-span-2 rounded-md border border-border/70 bg-background/35 p-3 text-sm text-muted-foreground">The gym name and logo appear across this Gym Admin workspace. VYRO Platform Admin keeps its own branding.</p>
   <div><Label htmlFor="gym-name">Gym name</Label><Input id="gym-name" name="name" defaultValue={gym.name} maxLength={160} required/></div><div><Label htmlFor="gym-owner">Owner name</Label><Input id="gym-owner" name="owner_name" defaultValue={gym.owner_name ?? ""} maxLength={120}/></div>
   <div><Label htmlFor="gym-phone">Phone</Label><Input id="gym-phone" name="phone" type="tel" defaultValue={gym.phone ?? ""} maxLength={40}/></div><div><Label htmlFor="gym-email">Email</Label><Input id="gym-email" name="email" type="email" defaultValue={gym.email ?? ""} maxLength={254}/></div>
   <div className="sm:col-span-2"><Label htmlFor="gym-address">Address</Label><Textarea id="gym-address" name="address" defaultValue={gym.address ?? ""} maxLength={1000}/></div>

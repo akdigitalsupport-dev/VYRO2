@@ -13,7 +13,8 @@
   --accent: #dd7d47;
   --accent-foreground: #170d08;
   --accent-subtle: rgba(221, 125, 71, 0.12);
-  --positive: #63bd91;
+  --positive: #a6afa8;
+  --income-up: #63bd91;
   --warning: #e4b25b;
   --danger: #e17769;
   --card: #121816;
@@ -43,6 +44,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-subtle: var(--accent-subtle);
   --color-positive: var(--positive);
+  --color-income-up: var(--income-up);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-card: var(--card);
@@ -77,7 +79,7 @@ html {
 body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.011em;
-  background-image: radial-gradient(ellipse 68rem 42rem at 4% -16%, rgba(56, 82, 63, 0.2), transparent 70%);
+  background-image: radial-gradient(ellipse 68rem 42rem at 4% -16%, rgba(166, 175, 168, 0.07), transparent 70%);
 }
 
 h1,
@@ -265,7 +267,7 @@ select {
   min-height: 100vh;
   min-height: 100svh;
   background:
-    radial-gradient(ellipse 48rem 38rem at 5% 0%, rgba(56, 82, 63, 0.2), transparent 72%),
+    radial-gradient(ellipse 48rem 38rem at 5% 0%, rgba(166, 175, 168, 0.07), transparent 72%),
     var(--background);
 }
 
@@ -607,4 +609,74 @@ select {
 @media (max-width: 480px) {
   .page-heading { flex-direction: column; gap: 0.65rem; }
   .live-indicator { align-self: flex-start; }
+}
+
+
+.notification-item-link {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  border-radius: 0.35rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.notification-item-link > div {
+  min-width: 0;
+}
+
+.notification-item-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.notification-item-link:hover strong {
+  color: var(--accent);
+}
+
+.notification-item-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .notification-center > summary {
+    min-height: 2.75rem;
+    padding: 0.5rem;
+  }
+
+  .notification-center > summary .notification-label {
+    display: none;
+  }
+
+  .notification-popover {
+    position: fixed;
+    top: calc(4.25rem + env(safe-area-inset-top, 0px));
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    max-width: 32rem;
+    max-height: calc(100dvh - 5.25rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin-inline: auto;
+  }
+
+  .notification-popover li {
+    gap: 0.5rem;
+    padding: 0.6rem;
+  }
+
+  .notification-popover li > form {
+    flex: 0 0 auto;
+  }
+
+  .notification-action {
+    max-width: 5.5rem;
+    white-space: normal;
+    text-align: right;
+  }
 }

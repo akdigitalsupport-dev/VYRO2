@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { NotificationCenter } from "@/components/notification-center";
+import { NotificationCenter, notificationHref } from "@/components/notification-center";
 
 afterEach(cleanup);
 
@@ -25,6 +25,26 @@ function renderNotificationCenter() {
     </>,
   );
 }
+
+describe("notification destination routing", () => {
+  it("opens membership reminders in the matching filtered member list", () => {
+    expect(notificationHref("gym", "membership_expiring")).toBe("/gym/members?membership_status=expiring");
+    expect(notificationHref("gym", "membership_expiry_reminder")).toBe("/gym/members?membership_status=expiring");
+    expect(notificationHref("gym", "membership_expired")).toBe("/gym/members?membership_status=expired");
+  });
+
+  it("opens payment and SaaS subscription notifications in their relevant sections", () => {
+    expect(notificationHref("gym", "payment_recorded")).toBe("/gym/members/billing");
+    expect(notificationHref("gym", "payment_refunded")).toBe("/gym/members/billing");
+    expect(notificationHref("platform", "gym_subscription_expiring")).toBe("/platform/subscriptions");
+    expect(notificationHref("platform", "platform_payment_refunded")).toBe("/platform/revenue/payments");
+  });
+
+  it("falls back to the correct workspace for unknown notification types", () => {
+    expect(notificationHref("gym", "unknown")).toBe("/gym/command-center");
+    expect(notificationHref("platform", "unknown")).toBe("/platform");
+  });
+});
 
 describe("notification center popover", () => {
   it("shows the notification in the disclosure and closes with Escape", async () => {
