@@ -86,7 +86,7 @@ function LinkedStatCard({
 export default async function CommandCenterPage() {
   const { gymId } = await requireGymAdminContext();
   const supabase = await createServerSupabaseClient();
-  const [{ data: settings }, summaryResult] = await Promise.all([
+  const [{ data: settings, error: settingsError }, summaryResult] = await Promise.all([
     supabase.from("gym_settings").select("timezone, currency").eq("gym_id", gymId).maybeSingle(),
     supabase.rpc("get_gym_dashboard_summary", { target_gym_id: gymId }),
   ]);
@@ -118,7 +118,7 @@ export default async function CommandCenterPage() {
   const membershipStats = report as GymReport | null;
   const monthRevenueData = monthRevenue as RevenueBreakdown | null;
   const todayRevenueData = todayRevenue as RevenueBreakdown | null;
-  const queryError = Boolean(summaryResult.error || reportError || financialError || monthRevenueError || todayRevenueError);
+  const queryError = Boolean(settingsError || summaryResult.error || reportError || financialError || monthRevenueError || todayRevenueError);
   const currency = settings?.currency?.trim() || "INR";
   const expiringCount = Number(membershipStats?.memberships?.expiring ?? 0);
   const expiredCount = Number(summary?.expired_members ?? membershipStats?.memberships?.expired ?? 0);
