@@ -22,8 +22,9 @@ describe("dashboard and report billing contracts (static SQL checks; not live DB
     expect(summary).toContain("sum(p.amount)");
     expect(summary).toContain("p.status = 'completed'");
     expect(dashboard).toContain('label="Collected this month"');
-    expect(dashboard).toContain('label="Outstanding"');
-    expect(dashboard).toContain('label="Expected"');
+    expect(dashboard).toContain('label="Outstanding dues"');
+    expect(dashboard).toContain('href="/gym/members/billing?status=outstanding"');
+    expect(dashboard).toContain('label="Expected revenue"');
   });
 
   it("derives expected and due values from the membership price snapshot and its linked completed payments", () => {
